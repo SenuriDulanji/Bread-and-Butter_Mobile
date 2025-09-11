@@ -1,0 +1,153 @@
+{% extends "admin_layout.html" %}
+
+{% block page_title %}Menu Items{% endblock %}
+{% block page_subtitle %}Manage your restaurant menu{% endblock %}
+
+{% block admin_content %}
+<div class="mb-6">
+    <a href="{{ url_for('add_item') }}" 
+       class="inline-flex items-center px-4 py-2 bg-bread-orange text-white font-medium rounded-lg hover:bg-orange-600 transition-colors">
+        <i class="fas fa-plus mr-2"></i>
+        Add New Item
+    </a>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="p-6 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">All Menu Items</h3>
+            <div class="flex items-center space-x-3">
+                <select class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-bread-orange focus:border-bread-orange text-sm"
+                        id="categoryFilter">
+                    <option value="">All Categories</option>
+                    <option value="appetizer">Appetizers</option>
+                    <option value="main_course">Main Course</option>
+                    <option value="dessert">Desserts</option>
+                    <option value="beverage">Beverages</option>
+                </select>
+                
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                    <input type="text" 
+                           id="searchInput"
+                           class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-bread-orange focus:border-bread-orange text-sm" 
+                           placeholder="Search items...">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if items %}
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200" id="itemTable">
+                {% for item in items %}
+                <tr class="hover:bg-gray-50" data-category="{{ item.bread_item_type or '' }}">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <div class="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                                {% if item.bread_item_image %}
+                                    <img src="{{ item.bread_item_image }}" alt="{{ item.bread_item_name }}" 
+                                         class="w-full h-full object-cover">
+                                {% else %}
+                                    <i class="fas fa-utensils text-gray-400"></i>
+                                {% endif %}
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{ item.bread_item_name }}</div>
+                                <div class="text-sm text-gray-500 max-w-xs truncate">{{ item.bread_item_description or 'No description' }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full capitalize">
+                            {{ item.bread_item_type or 'Unknown' }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                        ${{ "%.2f"|format(item.bread_item_price or 0) }}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if item.bread_item_status == 'active' %}
+                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Available</span>
+                        {% else %}
+                            <span class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Unavailable</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex space-x-2">
+                            <a href="{{ url_for('edit_item', item_id=item.bread_item_id) }}" 
+                               class="text-blue-600 hover:text-blue-800 text-sm">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <button onclick="confirmDelete({{ item.bread_item_id }})" 
+                                    class="text-red-600 hover:text-red-800 text-sm">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+        <i class="fas fa-utensils text-gray-400 text-4xl mb-4"></i>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No items found</h3>
+        <p class="text-gray-500 mb-4">Start building your menu by adding your first item.</p>
+        <a href="{{ url_for('add_item') }}" 
+           class="inline-flex items-center px-4 py-2 bg-bread-orange text-white font-medium rounded-lg hover:bg-orange-600 transition-colors">
+            <i class="fas fa-plus mr-2"></i>
+            Add First Item
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    filterTable();
+});
+
+// Category filter
+document.getElementById('categoryFilter').addEventListener('change', function() {
+    filterTable();
+});
+
+function filterTable() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const tableRows = document.querySelectorAll('#itemTable tr');
+    
+    tableRows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const category = row.dataset.category;
+        
+        const matchesSearch = text.includes(searchTerm);
+        const matchesCategory = !categoryFilter || category === categoryFilter;
+        
+        row.style.display = (matchesSearch && matchesCategory) ? '' : 'none';
+    });
+}
+
+function confirmDelete(itemId) {
+    if (confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+        window.location.href = `/items/delete/${itemId}`;
+    }
+}
+</script>
+{% endblock %}
