@@ -13,16 +13,41 @@ class MenuPage extends StatefulWidget {
 class _MenuPageState extends State<MenuPage> {
   List<Map<String, dynamic>> menuItems = [];
   List<Map<String, dynamic>> allMenuItems = [];
+  List<Map<String, dynamic>> categories = [];
   String selectedFilter = "All"; // Default filter
+  int? selectedCategoryId; // Track selected category ID
   TextEditingController searchController = TextEditingController();
+
+  // Function to fetch categories from API
+  Future<void> fetchCategories() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/categories'));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['success'] == true) {
+          setState(() {
+            categories = List<Map<String, dynamic>>.from(data['categories']);
+          });
+        } else {
+          print('Failed to fetch categories: ${data['message']}');
+        }
+      } else {
+        print('Failed to load categories. HTTP status: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('Error fetching categories: $error');
+    }
+  }
 
   // Function to fetch menu items from API
   Future<void> fetchMenuItems() async {
     try {
       // Build URL based on filter: if "All", do not include parameter
       String url = '$baseUrl/fetch_items';
-      if (selectedFilter != "All") {
-        url += '?item_type=$selectedFilter';
+      if (selectedFilter != "All" && selectedCategoryId != null) {
+        url += '?category_id=$selectedCategoryId';
       }
       final response = await http.get(Uri.parse(url));
 
@@ -97,6 +122,7 @@ class _MenuPageState extends State<MenuPage> {
   @override
   void initState() {
     super.initState();
+    fetchCategories(); // Fetch categories first
     fetchMenuItems(); // Fetch items when the page loads
     // Listen for changes in the search field to filter items locally
     searchController.addListener(() {
@@ -105,9 +131,10 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   // Update filter and refresh items, also clear search field
-  void updateFilter(String filter) {
+  void updateFilter(String filter, int? categoryId) {
     setState(() {
       selectedFilter = filter;
+      selectedCategoryId = categoryId;
       searchController.clear();
       menuItems = [];
       allMenuItems = [];
@@ -185,7 +212,7 @@ class _MenuPageState extends State<MenuPage> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withOpacity(0.05),
                           blurRadius: 10,
                           offset: Offset(0, 4),
                         ),
@@ -230,15 +257,22 @@ class _MenuPageState extends State<MenuPage> {
             sliver: SliverToBoxAdapter(
               child: Container(
                 height: 50,
-                child: ListView(
+                child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  children: [
-                    _buildFilterChip('All', Icons.apps_rounded),
-                    SizedBox(width: 12),
-                    _buildFilterChip('Food', Icons.restaurant_rounded),
-                    SizedBox(width: 12),
-                    _buildFilterChip('Beverage', Icons.local_drink_rounded),
-                  ],
+                  itemCount: categories.length + 1, // +1 for "All" option
+                  separatorBuilder: (context, index) => SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return _buildFilterChip('All', Icons.apps_rounded, null);
+                    } else {
+                      final category = categories[index - 1];
+                      return _buildFilterChip(
+                        category['name'],
+                        _getCategoryIcon(category['name']),
+                        category['id'],
+                      );
+                    }
+                  },
                 ),
               ),
             ),
@@ -288,10 +322,30 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  Widget _buildFilterChip(String label, IconData icon) {
+  // Helper function to get appropriate icon for each category
+  IconData _getCategoryIcon(String categoryName) {
+    switch (categoryName.toLowerCase()) {
+      case 'burgers':
+        return Icons.lunch_dining_rounded;
+      case 'pizza':
+        return Icons.local_pizza_rounded;
+      case 'beverages':
+        return Icons.local_drink_rounded;
+      case 'desserts':
+        return Icons.cake_rounded;
+      case 'sides':
+        return Icons.restaurant_rounded;
+      case 'salads':
+        return Icons.eco_rounded;
+      default:
+        return Icons.restaurant_rounded;
+    }
+  }
+
+  Widget _buildFilterChip(String label, IconData icon, int? categoryId) {
     bool isSelected = selectedFilter == label;
     return GestureDetector(
-      onTap: () => updateFilter(label),
+      onTap: () => updateFilter(label, categoryId),
       child: AnimatedContainer(
         duration: Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -300,7 +354,7 @@ class _MenuPageState extends State<MenuPage> {
           borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isSelected ? 0.15 : 0.05),
+              color: Colors.black.withOpacity(isSelected ? 0.15 : 0.05),
               blurRadius: isSelected ? 8 : 4,
               offset: Offset(0, isSelected ? 4 : 2),
             ),
@@ -337,7 +391,7 @@ class _MenuPageState extends State<MenuPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 12,
             offset: Offset(0, 6),
           ),
@@ -381,7 +435,7 @@ class _MenuPageState extends State<MenuPage> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withValues(alpha: 0.1),
+                              Colors.black.withOpacity(0.1),
                             ],
                           ),
                         ),
@@ -392,7 +446,7 @@ class _MenuPageState extends State<MenuPage> {
                         child: Container(
                           padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: Colors.white.withOpacity(0.9),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -490,7 +544,7 @@ class _MenuPageState extends State<MenuPage> {
                           borderRadius: BorderRadius.circular(25),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.orange.withValues(alpha: 0.3),
+                              color: Colors.orange.withOpacity(0.3),
                               blurRadius: 8,
                               offset: Offset(0, 4),
                             ),

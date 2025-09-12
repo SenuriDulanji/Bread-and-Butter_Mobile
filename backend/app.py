@@ -10,6 +10,12 @@ import json
 from werkzeug.utils import secure_filename
 from PIL import Image
 import uuid
+import pandas as pd
+import numpy as np
+from prophet import Prophet
+import warnings
+warnings.filterwarnings('ignore')
+from recommendation_engine import recommendation_engine
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secrets.token_hex(16)
@@ -151,16 +157,20 @@ class Offer(db.Model):
     def __repr__(self):
         return f'<Offer {self.title}>'
 
-# Web Interface Routes
-@app.route('/')
-def dashboard():
-    # Get statistics for dashboard
-    stats = {
+# Helper function to get stats
+def get_stats():
+    return {
         'total_users': User.query.count(),
         'total_orders': Order.query.count(),
         'total_revenue': db.session.query(db.func.sum(Order.total_amount)).scalar() or 0,
         'total_menu_items': MenuItem.query.count()
     }
+
+# Web Interface Routes
+@app.route('/')
+def dashboard():
+    # Get statistics for dashboard
+    stats = get_stats()
     
     # Get recent orders
     recent_orders = Order.query.order_by(Order.created_at.desc()).limit(5).all()
@@ -170,23 +180,65 @@ def dashboard():
 @app.route('/users')
 def users():
     users_list = User.query.order_by(User.created_at.desc()).all()
-    return render_template('users.html', users=users_list)
+    stats = get_stats()
+    return render_template('users.html', users=users_list, stats=stats)
 
 @app.route('/menu')
 def menu():
     menu_items = MenuItem.query.order_by(MenuItem.created_at.desc()).all()
     categories = Category.query.all()
-    return render_template('menu.html', menu_items=menu_items, categories=categories)
+    stats = get_stats()
+    return render_template('menu.html', menu_items=menu_items, categories=categories, stats=stats)
 
 @app.route('/orders')
 def orders():
-    orders_list = Order.query.order_by(Order.created_at.desc()).all()
-    return render_template('orders.html', orders=orders_list)
+    # Get page number from query parameters, default to 1
+    page = request.args.get('page', 1, type=int)
+    per_page = 50  # Show 50 orders per page
+    
+    # Get status filter from query parameters
+    status_filter = request.args.get('status', '')
+    search_query = request.args.get('search', '')
+    
+    # Build base query
+    query = Order.query
+    
+    # Apply status filter if provided
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    
+    # Apply search filter if provided
+    if search_query:
+        query = query.join(User).filter(
+            db.or_(
+                Order.id.like(f'%{search_query}%'),
+                Order.delivery_address.like(f'%{search_query}%'),
+                Order.phone.like(f'%{search_query}%'),
+                User.name.like(f'%{search_query}%')
+            )
+        )
+    
+    # Order by creation date (newest first) and paginate
+    orders_pagination = query.order_by(Order.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    orders_list = orders_pagination.items
+    stats = get_stats()
+    
+    return render_template('orders.html', 
+                         orders=orders_list, 
+                         stats=stats,
+                         pagination=orders_pagination,
+                         current_page=page,
+                         status_filter=status_filter,
+                         search_query=search_query)
 
 @app.route('/offers')
 def offers():
     offers_list = Offer.query.order_by(Offer.created_at.desc()).all()
-    return render_template('offers.html', offers=offers_list)
+    stats = get_stats()
+    return render_template('offers.html', offers=offers_list, stats=stats)
 
 # Web API Routes (for the web interface)
 @app.route('/api/users/<int:user_id>')
@@ -618,6 +670,17 @@ def fetch_items():
         'categories': [{'id': cat.id, 'name': cat.name, 'image': cat.image} for cat in categories]
     })
 
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    try:
+        categories = Category.query.all()
+        return jsonify({
+            'success': True,
+            'categories': [{'id': cat.id, 'name': cat.name, 'image': cat.image} for cat in categories]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error fetching categories: {str(e)}'}), 500
+
 @app.route('/api/add_order', methods=['POST'])
 @jwt_required()
 def add_order():
@@ -654,6 +717,59 @@ def add_order():
         'message': 'Order placed successfully',
         'order_id': order.id
     })
+
+@app.route('/api/orders/<int:order_id>', methods=['DELETE'])
+def delete_order(order_id):
+    try:
+        order = Order.query.get_or_404(order_id)
+        
+        # Delete the order
+        db.session.delete(order)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Order deleted successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error deleting order: {str(e)}'
+        }), 500
+
+@app.route('/api/cleanup-database', methods=['POST'])
+def cleanup_database():
+    """Clean all data from the database - USE WITH CAUTION!"""
+    try:
+        # Delete all orders first (due to foreign key constraints)
+        Order.query.delete()
+        
+        # Delete all menu items
+        MenuItem.query.delete()
+        
+        # Delete all users
+        User.query.delete()
+        
+        # Delete all categories
+        Category.query.delete()
+        
+        # Delete all offers
+        Offer.query.delete()
+        
+        # Commit all deletions
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Database cleaned successfully. All orders, menu items, users, categories, and offers have been removed.'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error cleaning database: {str(e)}'
+        }), 500
 
 @app.route('/api/get_orders', methods=['GET'])
 @jwt_required()
@@ -716,6 +832,122 @@ def get_loyalty_points():
         'loyalty_points': user.loyalty_points
     })
 
+@app.route('/api/recommendations', methods=['GET'])
+@jwt_required()
+def get_recommendations():
+    """Get personalized menu recommendations for the authenticated user"""
+    try:
+        user_id = int(get_jwt_identity())
+        
+        # Get user's order history
+        user_orders = Order.query.filter_by(user_id=user_id).all()
+        orders_data = []
+        
+        for order in user_orders:
+            orders_data.append({
+                'user_id': order.user_id,
+                'items': order.items,
+                'created_at': order.created_at.isoformat(),
+                'total_amount': order.total_amount
+            })
+        
+        # Get all menu items
+        menu_items = MenuItem.query.filter_by(is_available=True).all()
+        menu_items_data = [item.to_dict() for item in menu_items]
+        
+        # Get all orders for collaborative filtering
+        all_orders = Order.query.all()
+        all_orders_data = []
+        
+        for order in all_orders:
+            all_orders_data.append({
+                'user_id': order.user_id,
+                'items': order.items,
+                'created_at': order.created_at.isoformat(),
+                'total_amount': order.total_amount
+            })
+        
+        # Generate recommendations
+        if len(user_orders) > 0:
+            # Personalized recommendations based on user history
+            recommendations = recommendation_engine.get_recommendations(
+                user_id, all_orders_data, menu_items_data, num_recommendations=3
+            )
+        else:
+            # For new users, show trending items
+            recommendations = recommendation_engine.get_trending_items(
+                all_orders_data, menu_items_data, days=30, limit=3
+            )
+        
+        return jsonify({
+            'success': True,
+            'recommendations': recommendations,
+            'user_has_history': len(user_orders) > 0,
+            'recommendation_type': 'personalized' if len(user_orders) > 0 else 'trending'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error generating recommendations: {str(e)}'
+        }), 500
+
+@app.route('/api/recommendations/<int:user_id>', methods=['GET'])
+def get_recommendations_for_user(user_id):
+    """Get recommendations for a specific user (admin endpoint)"""
+    try:
+        # Get user's order history
+        user_orders = Order.query.filter_by(user_id=user_id).all()
+        orders_data = []
+        
+        for order in user_orders:
+            orders_data.append({
+                'user_id': order.user_id,
+                'items': order.items,
+                'created_at': order.created_at.isoformat(),
+                'total_amount': order.total_amount
+            })
+        
+        # Get all menu items
+        menu_items = MenuItem.query.filter_by(is_available=True).all()
+        menu_items_data = [item.to_dict() for item in menu_items]
+        
+        # Get all orders for collaborative filtering
+        all_orders = Order.query.all()
+        all_orders_data = []
+        
+        for order in all_orders:
+            all_orders_data.append({
+                'user_id': order.user_id,
+                'items': order.items,
+                'created_at': order.created_at.isoformat(),
+                'total_amount': order.total_amount
+            })
+        
+        # Generate recommendations
+        if len(user_orders) > 0:
+            recommendations = recommendation_engine.get_recommendations(
+                user_id, all_orders_data, menu_items_data, num_recommendations=3
+            )
+        else:
+            recommendations = recommendation_engine.get_trending_items(
+                all_orders_data, menu_items_data, days=30, limit=3
+            )
+        
+        return jsonify({
+            'success': True,
+            'recommendations': recommendations,
+            'user_id': user_id,
+            'user_has_history': len(user_orders) > 0,
+            'recommendation_type': 'personalized' if len(user_orders) > 0 else 'trending'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error generating recommendations: {str(e)}'
+        }), 500
+
 @app.route('/api/get_weekly_highlight', methods=['GET'])
 def get_weekly_highlight():
     offers = Offer.query.filter_by(is_active=True).all()
@@ -774,6 +1006,174 @@ def verify_reset_password():
         'success': True,
         'message': 'Password reset successfully'
     })
+
+# Forecasting API endpoints
+@app.route('/api/forecast/data')
+def get_forecast_data():
+    """Generate order forecasting data using Prophet"""
+    try:
+        # Get historical order data grouped by date
+        orders_query = """
+        SELECT DATE(created_at) as order_date, COUNT(*) as order_count
+        FROM "order" 
+        WHERE created_at >= '2025-01-01' 
+        GROUP BY DATE(created_at)
+        ORDER BY order_date
+        """
+        
+        # Execute raw SQL query
+        result = db.session.execute(db.text(orders_query))
+        
+        # Convert to DataFrame
+        data = []
+        for row in result:
+            data.append({'ds': datetime.strptime(row[0], '%Y-%m-%d'), 'y': row[1]})
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No order data found'}), 404
+        
+        df = pd.DataFrame(data)
+        
+        # Create and train Prophet model
+        model = Prophet(
+            daily_seasonality=False,
+            weekly_seasonality=True,
+            yearly_seasonality=False,
+            interval_width=0.95
+        )
+        
+        model.fit(df)
+        
+        # Create future dataframe for 30 days
+        future = model.make_future_dataframe(periods=30)
+        
+        # Make predictions
+        forecast = model.predict(future)
+        
+        # Prepare response data
+        historical_data = []
+        for _, row in df.iterrows():
+            historical_data.append({
+                'date': row['ds'].strftime('%Y-%m-%d'),
+                'orders': int(row['y'])
+            })
+        
+        forecast_data = []
+        future_start = df['ds'].max() + timedelta(days=1)
+        future_forecast = forecast[forecast['ds'] >= future_start].head(30)
+        
+        for _, row in future_forecast.iterrows():
+            forecast_data.append({
+                'date': row['ds'].strftime('%Y-%m-%d'),
+                'predicted_orders': max(0, int(row['yhat'])),
+                'lower_bound': max(0, int(row['yhat_lower'])),
+                'upper_bound': max(0, int(row['yhat_upper']))
+            })
+        
+        # Calculate summary statistics
+        historical_avg = df['y'].mean()
+        forecast_avg = future_forecast['yhat'].mean()
+        growth_rate = ((forecast_avg - historical_avg) / historical_avg) * 100 if historical_avg > 0 else 0
+        
+        return jsonify({
+            'success': True,
+            'historical_data': historical_data,
+            'forecast_data': forecast_data,
+            'summary': {
+                'historical_avg': round(historical_avg, 1),
+                'forecast_avg': round(forecast_avg, 1),
+                'growth_rate': round(growth_rate, 1),
+                'total_historical_days': len(historical_data),
+                'forecast_period_days': len(forecast_data)
+            }
+        })
+        
+    except Exception as e:
+        print(f"Forecast error: {e}")
+        return jsonify({'success': False, 'message': f'Error generating forecast: {str(e)}'}), 500
+
+
+@app.route('/api/orders/analytics')
+def get_orders_analytics():
+    """Get comprehensive order analytics for dashboard"""
+    try:
+        # Basic statistics
+        total_orders = Order.query.count()
+        total_revenue = db.session.query(db.func.sum(Order.total_amount)).scalar() or 0
+        avg_order_value = total_revenue / total_orders if total_orders > 0 else 0
+        
+        # Status breakdown
+        status_stats = {}
+        for status in ['pending', 'confirmed', 'preparing', 'ready', 'delivered']:
+            count = Order.query.filter_by(status=status).count()
+            status_stats[status] = count
+        
+        # Daily orders in last 30 days
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        daily_orders_query = """
+        SELECT DATE(created_at) as order_date, COUNT(*) as count, SUM(total_amount) as revenue
+        FROM "order" 
+        WHERE created_at >= :start_date
+        GROUP BY DATE(created_at)
+        ORDER BY order_date
+        """
+        
+        result = db.session.execute(db.text(daily_orders_query), {'start_date': thirty_days_ago})
+        
+        daily_stats = []
+        for row in result:
+            daily_stats.append({
+                'date': row[0],
+                'orders': row[1],
+                'revenue': float(row[2])
+            })
+        
+        # Top menu items
+        top_items_query = """
+        SELECT json_extract(items, '$[*].name') as item_names,
+               json_extract(items, '$[*].quantity') as quantities,
+               COUNT(*) as order_count
+        FROM "order"
+        GROUP BY json_extract(items, '$[*].name')
+        ORDER BY order_count DESC
+        LIMIT 10
+        """
+        
+        # Weekly revenue trend
+        weekly_revenue_query = """
+        SELECT strftime('%Y-%W', created_at) as week,
+               COUNT(*) as orders,
+               SUM(total_amount) as revenue
+        FROM "order"
+        WHERE created_at >= date('now', '-8 weeks')
+        GROUP BY strftime('%Y-%W', created_at)
+        ORDER BY week
+        """
+        
+        weekly_result = db.session.execute(db.text(weekly_revenue_query))
+        weekly_stats = []
+        for row in weekly_result:
+            weekly_stats.append({
+                'week': row[0],
+                'orders': row[1],
+                'revenue': float(row[2])
+            })
+        
+        return jsonify({
+            'success': True,
+            'summary': {
+                'total_orders': total_orders,
+                'total_revenue': round(total_revenue, 2),
+                'avg_order_value': round(avg_order_value, 2),
+                'status_breakdown': status_stats
+            },
+            'daily_stats': daily_stats,
+            'weekly_stats': weekly_stats
+        })
+        
+    except Exception as e:
+        print(f"Analytics error: {e}")
+        return jsonify({'success': False, 'message': f'Error getting analytics: {str(e)}'}), 500
 
 # Static file serving for images
 @app.route('/uploads/<path:filename>')

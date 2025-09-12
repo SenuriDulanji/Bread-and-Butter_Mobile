@@ -139,7 +139,7 @@ class _OffersPageState extends State<OffersPage> with SingleTickerProviderStateM
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withValues(alpha: 0.3),
+            color: Colors.orange.withOpacity(0.3),
             blurRadius: 15,
             offset: Offset(0, 8),
           ),
@@ -164,7 +164,7 @@ class _OffersPageState extends State<OffersPage> with SingleTickerProviderStateM
                   'Save more on your favorite meals with our exclusive offers',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: Colors.white.withOpacity(0.9),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -174,7 +174,7 @@ class _OffersPageState extends State<OffersPage> with SingleTickerProviderStateM
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
@@ -196,7 +196,7 @@ class _OffersPageState extends State<OffersPage> with SingleTickerProviderStateM
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 15,
             offset: Offset(0, 6),
           ),
@@ -225,7 +225,7 @@ class _OffersPageState extends State<OffersPage> with SingleTickerProviderStateM
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withValues(alpha: 0.3),
+                        Colors.black.withOpacity(0.3),
                       ],
                     ),
                   ),
@@ -240,7 +240,7 @@ class _OffersPageState extends State<OffersPage> with SingleTickerProviderStateM
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.red.withValues(alpha: 0.3),
+                          color: Colors.red.withOpacity(0.3),
                           blurRadius: 8,
                           offset: Offset(0, 4),
                         ),

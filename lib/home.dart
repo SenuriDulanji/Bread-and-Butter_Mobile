@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   // List to store recommended items details
   List<dynamic> _recommendedItems = [];
   bool _isLoadingRecommendations = true;
-  
+
   // User data
   String _username = '';
   bool _isLoadingUsername = true;
@@ -88,9 +88,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Future<void> _fetchRecommendations() async {
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId');
-    if (userId == null) {
-      print('User ID is not available');
+    final token = prefs.getString('token');
+    if (token == null) {
+      print('Token is not available');
       setState(() {
         _isLoadingRecommendations = false;
       });
@@ -98,57 +98,43 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
 
     try {
-      // Call the recommendations API
-      final recUrl = 'https://model.ayeshmadusanka.site/recommendations/$userId';
-      final recResponse = await http.get(Uri.parse(recUrl));
-      print('Recommendations Response: ${recResponse.body}');
+      final response = await http.get(
+        Uri.parse('$baseUrl/recommendations'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
-      if (recResponse.statusCode == 200) {
-        final recData = json.decode(recResponse.body);
-        List<dynamic> recommendations = recData['recommendations'];
-        if (recommendations.isNotEmpty) {
-          // Build comma-separated string of IDs
-          final ids = recommendations.join(',');
-          // Call the item details API with the recommended IDs
-          final detailsUrl = '$baseUrl/get_item_details?ids=$ids';
-          final detailsResponse = await http.get(Uri.parse(detailsUrl));
-          print('Item Details Response: ${detailsResponse.body}');
-
-          if (detailsResponse.statusCode == 200) {
-            List<dynamic> items = json.decode(detailsResponse.body);
-            // Replace the relative image path prefix with the baseUrl
-            items = items.map((item) {
-              if (item['image'] != null) {
-                String imagePath = item['image'];
-                // Construct full image URL, handling both full paths and filenames
-                if (imagePath.startsWith('uploads/')) {
-                  item['image_path'] = '$imageUrl$imagePath';
-                } else {
-                  item['image_path'] = '${imageUrl}uploads/images/$imagePath';
-                }
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success']) {
+          List<dynamic> items = data['recommendations'];
+          items = items.map((item) {
+            if (item['image'] != null) {
+              String imagePath = item['image'];
+              if (imagePath.startsWith('uploads/')) {
+                item['image_path'] = '$imageUrl$imagePath';
               } else {
-                item['image_path'] = null;
+                item['image_path'] = '${imageUrl}uploads/images/$imagePath';
               }
-              return item;
-            }).toList();
-            setState(() {
-              _recommendedItems = items;
-              _isLoadingRecommendations = false;
-            });
-          } else {
-            print('Failed to load item details');
-            setState(() {
-              _isLoadingRecommendations = false;
-            });
-          }
+            } else {
+              item['image_path'] = null;
+            }
+            return item;
+          }).toList();
+          setState(() {
+            _recommendedItems = items;
+            _isLoadingRecommendations = false;
+          });
         } else {
-          print('No recommendations available');
+          print('Failed to load recommendations: ${data['message']}');
           setState(() {
             _isLoadingRecommendations = false;
           });
         }
       } else {
-        print('Failed to load recommendations');
+        print('Failed to load recommendations: ${response.statusCode}');
         setState(() {
           _isLoadingRecommendations = false;
         });
@@ -262,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           Text(
                             'Good ${_getGreeting()}!',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
+                              color: Colors.white.withOpacity(0.9),
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -279,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       ),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: IconButton(
@@ -370,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: Offset(0, 4),
           ),
@@ -409,7 +395,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         Container(
           padding: EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.orange.shade600.withValues(alpha: 0.1),
+            color: Colors.orange.shade600.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -448,7 +434,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
               offset: Offset(0, 4),
             ),
@@ -501,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withOpacity(0.08),
                     blurRadius: 10,
                     offset: Offset(0, 4),
                   ),
@@ -516,20 +502,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                       image: item['image_path'] != null
                           ? DecorationImage(
-                              image: NetworkImage(item['image_path']),
-                              fit: BoxFit.cover,
-                            )
+                        image: NetworkImage(item['image_path']),
+                        fit: BoxFit.cover,
+                      )
                           : null,
                       color: item['image_path'] == null ? Colors.orange.shade50 : null,
                     ),
                     child: item['image_path'] == null
                         ? Center(
-                            child: Icon(
-                              Icons.fastfood_rounded,
-                              size: 40,
-                              color: Colors.orange.shade300,
-                            ),
-                          )
+                      child: Icon(
+                        Icons.fastfood_rounded,
+                        size: 40,
+                        color: Colors.orange.shade300,
+                      ),
+                    )
                         : null,
                   ),
                   Expanded(
@@ -594,7 +580,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: Colors.black.withOpacity(0.15),
               blurRadius: 20,
               offset: Offset(0, 8),
             ),
@@ -622,7 +608,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   image: AssetImage('assets/special.jpg'),
                   fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(
-                    Colors.black.withValues(alpha: 0.3),
+                    Colors.black.withOpacity(0.3),
                     BlendMode.overlay,
                   ),
                 ),
@@ -638,7 +624,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -665,7 +651,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     'Try our exclusive weekly dishes',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withOpacity(0.9),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -678,7 +664,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -700,7 +686,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 20,
             offset: Offset(0, -5),
           ),
@@ -712,15 +698,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.home_rounded, 'Home', () {}),
+              _buildNavItem(0, Icons.home_rounded, 'Home', () {
+                // Already on home, do nothing or refresh
+              }),
               _buildNavItem(1, Icons.local_offer_rounded, 'Offers', () {
-                Navigator.push(
+                Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (context) => OffersPage()),
                 );
               }),
               _buildNavItem(2, Icons.restaurant_menu_rounded, 'Menu', () {
-                Navigator.push(
+                Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (context) => MenuPage()),
                 );
@@ -742,10 +730,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     bool isSelected = _currentIndex == index;
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
-        onTap();
+        if (_currentIndex != index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          onTap();
+        }
       },
       child: AnimatedContainer(
         duration: Duration(milliseconds: 200),

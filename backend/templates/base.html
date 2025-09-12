@@ -1,17 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Bread & Butter Admin{% endblock %}</title>
+    <meta name="theme-color" content="#f97316">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>{% block title %}Bread & Butter Admin Dashboard{% endblock %}</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+    
+    <!-- Advanced icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    
+    <!-- TailwindCSS with advanced configuration -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
+                fontFamily: {
+                    'sans': ['Inter', 'ui-sans-serif', 'system-ui'],
+                    'serif': ['Lora', 'Georgia', 'serif'],
+                    'heading': ['Lora', 'Georgia', 'serif'],
+                },
                 extend: {
                     colors: {
-                        primary: {
+                        'primary': {
                             50: '#fff7ed',
                             100: '#ffedd5',
                             200: '#fed7aa',
@@ -22,30 +43,216 @@
                             700: '#c2410c',
                             800: '#9a3412',
                             900: '#7c2d12',
+                            950: '#431407',
+                        },
+                        'success': {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        },
+                        'warning': {
+                            50: '#fffbeb',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                        },
+                        'error': {
+                            50: '#fef2f2',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                        },
+                        'info': {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                        },
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                        'fade-in-up': 'fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                        'slide-in-right': 'slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                        'scale-in': 'scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        slideInRight: {
+                            '0%': { opacity: '0', transform: 'translateX(100%)' },
+                            '100%': { opacity: '1', transform: 'translateX(0)' }
+                        },
+                        scaleIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.9)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' }
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(249, 115, 22, 0.3)' },
+                            '100%': { boxShadow: '0 0 20px rgba(249, 115, 22, 0.6)' }
                         }
+                    },
+                    backdropBlur: {
+                        'xs': '2px',
+                    },
+                    borderRadius: {
+                        '4xl': '2rem',
+                        '5xl': '2.5rem',
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+                        'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                        'hard': '0 10px 40px -10px rgba(0, 0, 0, 0.2)',
+                        'glow': '0 0 20px rgba(249, 115, 22, 0.3)',
                     }
                 }
             }
         }
     </script>
+    
+    <style>
+        /* Enhanced Typography with Lora font */
+        .heading-text {
+            font-family: 'Lora', Georgia, serif;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+        }
+        
+        .subheading-text {
+            font-family: 'Lora', Georgia, serif;
+            font-weight: 500;
+        }
+        
+        .brand-text {
+            font-family: 'Lora', Georgia, serif;
+            font-weight: 700;
+            font-style: italic;
+        }
+
+        /* Glass Morphism Effects */
+        .glass-morphism {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .dark .glass-morphism {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Advanced Hover Effects */
+        .hover-lift {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateZ(0);
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 6px;
+            transition: background 0.3s ease;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.8);
+        }
+
+        /* Mobile Optimizations */
+        @media (max-width: 768px) {
+            .mobile-hidden { display: none !important; }
+            .mobile-stack { flex-direction: column !important; }
+            .mobile-full { width: 100% !important; }
+            .mobile-text-center { text-align: center !important; }
+        }
+
+        /* Dark mode transitions */
+        * {
+            transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+            transition-duration: 300ms;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-sm border-b border-gray-200">
+
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 min-h-screen font-sans antialiased custom-scrollbar">
+    
+    <!-- Advanced Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-40 glass-morphism border-b border-white/20 dark:border-white/10 backdrop-blur-xl">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 flex items-center">
-                        <h1 class="text-2xl font-bold text-primary-600">🍞 Bread & Butter</h1>
-                        <span class="ml-3 text-sm text-gray-500">Admin Dashboard</span>
+            <div class="flex justify-between items-center h-20">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-3 group">
+                        <div class="relative">
+                            <div class="w-12 h-12 bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-2xl flex items-center justify-center shadow-medium group-hover:shadow-glow transition-all duration-300 transform group-hover:scale-105">
+                                <i class="fas fa-bread-slice text-white text-xl group-hover:rotate-12 transition-transform duration-300"></i>
+                            </div>
+                            <div class="absolute -top-1 -right-1 w-5 h-5 bg-success-500 rounded-full flex items-center justify-center animate-pulse">
+                                <div class="w-2 h-2 bg-white rounded-full"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl brand-text bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 dark:from-white dark:via-gray-100 dark:to-gray-200 bg-clip-text text-transparent">
+                                Bread & Butter
+                            </h1>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 font-medium -mt-1">Admin Dashboard</p>
+                        </div>
                     </div>
                 </div>
+                
                 <div class="flex items-center space-x-4">
-                    <div class="text-sm text-gray-600">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <span class="w-2 h-2 bg-green-400 rounded-full mr-1"></span>
-                            Online
-                        </span>
+                    <!-- Dark Mode Toggle -->
+                    <div class="relative">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="darkModeToggle" class="sr-only">
+                            <div class="relative w-12 h-6 bg-gray-300 dark:bg-gray-600 rounded-full shadow-inner transition-colors duration-300 ease-in-out">
+                                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-300 ease-in-out dark:translate-x-6"></div>
+                            </div>
+                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-300 mobile-hidden">
+                                <i class="fas fa-moon dark:hidden"></i>
+                                <i class="fas fa-sun hidden dark:inline"></i>
+                            </span>
+                        </label>
+                    </div>
+                    
+                    <!-- Status Indicator -->
+                    <div class="flex items-center space-x-2 bg-white dark:bg-gray-800 rounded-xl shadow-md px-4 py-2 border border-gray-100 dark:border-gray-700">
+                        <div class="w-3 h-3 bg-success-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200 mobile-hidden">Online</span>
+                    </div>
+                    
+                    <!-- Admin Profile -->
+                    <div class="flex items-center space-x-3 bg-white dark:bg-gray-800 rounded-xl shadow-md px-4 py-2 hover-lift mobile-full border border-gray-100 dark:border-gray-700">
+                        <div class="w-10 h-10 bg-gradient-to-r from-primary-500 to-primary-600 rounded-full flex items-center justify-center shadow-md">
+                            <i class="fas fa-user-shield text-white text-sm"></i>
+                        </div>
+                        <div class="mobile-hidden">
+                            <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Administrator</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">System Admin</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -53,67 +260,151 @@
     </nav>
 
     <!-- Sidebar and Main Content -->
-    <div class="flex h-screen bg-gray-50 pt-16">
-        <!-- Sidebar -->
-        <div class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:pt-16">
-            <div class="flex-1 flex flex-col min-h-0 bg-white shadow-sm">
-                <div class="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-                    <nav class="mt-5 flex-1 px-2 space-y-1">
-                        <a href="/" class="{% if request.endpoint == 'dashboard' %}bg-primary-100 text-primary-700 border-primary-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md border-l-4 border-transparent">
-                            <svg class="mr-3 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
-                            </svg>
-                            Dashboard
-                        </a>
-                        
-                        <a href="/users" class="{% if request.endpoint == 'users' %}bg-primary-100 text-primary-700 border-primary-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md border-l-4 border-transparent">
-                            <svg class="mr-3 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                            </svg>
-                            Users
-                        </a>
-                        
-                        <a href="/menu" class="{% if request.endpoint == 'menu' %}bg-primary-100 text-primary-700 border-primary-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md border-l-4 border-transparent">
-                            <svg class="mr-3 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v2m14 4v2a2 2 0 01-2 2H7a2 2 0 01-2-2v-2" />
-                            </svg>
-                            Menu Items
-                        </a>
-                        
-                        <a href="/orders" class="{% if request.endpoint == 'orders' %}bg-primary-100 text-primary-700 border-primary-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md border-l-4 border-transparent">
-                            <svg class="mr-3 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V10a1 1 0 011-1z" />
-                            </svg>
-                            Orders
-                        </a>
-                        
-                        <a href="/offers" class="{% if request.endpoint == 'offers' %}bg-primary-100 text-primary-700 border-primary-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md border-l-4 border-transparent">
-                            <svg class="mr-3 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c1.5-2.3 4.5-2.3 6 0h5a1.003 1.003 0 011 1v16a1.003 1.003 0 01-1 1H6a1.003 1.003 0 01-1-1V4a1.003 1.003 0 011-1z" />
-                            </svg>
-                            Offers
-                        </a>
-                    </nav>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="md:pl-64 flex flex-col flex-1">
-            <main class="flex-1">
-                <div class="py-6">
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-                        {% block content %}{% endblock %}
+    <div class="flex pt-20 min-h-screen">
+        <!-- Advanced Sidebar -->
+        <aside class="fixed left-0 top-20 bottom-0 w-80 z-30 glass-morphism border-r border-white/20 dark:border-white/10 mobile-hidden transform transition-all duration-300 ease-in-out">
+            <div class="flex flex-col h-full">
+                <!-- Sidebar Header -->
+                <div class="p-6 border-b border-white/20 dark:border-white/10">
+                    <div class="bg-gradient-to-r from-gray-50/80 to-gray-100/80 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-4 border border-gray-200/50 dark:border-gray-600/30">
+                        <div class="text-center">
+                            <div class="text-3xl heading-text text-gray-900 dark:text-white mb-1">{{ stats.total_orders or 0 }}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400 subheading-text">Total Orders Today</div>
+                        </div>
                     </div>
                 </div>
-            </main>
-        </div>
+                
+                <!-- Navigation Menu -->
+                <nav class="flex-1 px-6 py-6 space-y-2 custom-scrollbar overflow-y-auto">
+                    <div class="space-y-1">
+                        <p class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Main Menu</p>
+                        
+                        <a href="/" class="nav-link group flex items-center px-4 py-4 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 rounded-2xl transition-all duration-300 {% if request.endpoint == 'dashboard' %}bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 text-primary-700 dark:text-primary-300 shadow-soft border border-primary-200/50{% endif %}">
+                            <div class="nav-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500/10 to-primary-600/10 group-hover:from-primary-500/20 group-hover:to-primary-600/20 transition-all duration-300 {% if request.endpoint == 'dashboard' %}from-primary-500/20 to-primary-600/20 shadow-lg{% endif %}">
+                                <i class="fas fa-home text-base group-hover:scale-110 transition-transform duration-300"></i>
+                            </div>
+                            <span class="ml-4 font-semibold subheading-text text-base">Dashboard</span>
+                            <div class="ml-auto w-2 h-2 bg-current rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 {% if request.endpoint == 'dashboard' %}opacity-100{% endif %}"></div>
+                        </a>
+                        
+                        <div class="pt-6">
+                            <p class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Management</p>
+                        </div>
+                        
+                        <a href="/users" class="nav-link group flex items-center px-4 py-4 text-gray-700 dark:text-gray-300 hover:text-info-600 dark:hover:text-info-400 rounded-2xl transition-all duration-300 {% if request.endpoint == 'users' %}bg-gradient-to-r from-info-50 to-info-100 dark:from-info-900/30 dark:to-info-800/30 text-info-700 dark:text-info-300 shadow-soft border border-info-200/50{% endif %}">
+                            <div class="nav-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-info-500/10 to-info-600/10 group-hover:from-info-500/20 group-hover:to-info-600/20 transition-all duration-300 {% if request.endpoint == 'users' %}from-info-500/20 to-info-600/20 shadow-lg{% endif %}">
+                                <i class="fas fa-users text-base group-hover:scale-110 transition-transform duration-300"></i>
+                            </div>
+                            <span class="ml-4 font-semibold subheading-text text-base">Users</span>
+                            <div class="ml-auto w-2 h-2 bg-current rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 {% if request.endpoint == 'users' %}opacity-100{% endif %}"></div>
+                        </a>
+                        
+                        <a href="/menu" class="nav-link group flex items-center px-4 py-4 text-gray-700 dark:text-gray-300 hover:text-warning-600 dark:hover:text-warning-400 rounded-2xl transition-all duration-300 {% if request.endpoint == 'menu' %}bg-gradient-to-r from-warning-50 to-warning-100 dark:from-warning-900/30 dark:to-warning-800/30 text-warning-700 dark:text-warning-300 shadow-soft border border-warning-200/50{% endif %}">
+                            <div class="nav-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-warning-500/10 to-warning-600/10 group-hover:from-warning-500/20 group-hover:to-warning-600/20 transition-all duration-300 {% if request.endpoint == 'menu' %}from-warning-500/20 to-warning-600/20 shadow-lg{% endif %}">
+                                <i class="fas fa-utensils text-base group-hover:scale-110 transition-transform duration-300"></i>
+                            </div>
+                            <span class="ml-4 font-semibold subheading-text text-base">Menu Items</span>
+                            <div class="ml-auto w-2 h-2 bg-current rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 {% if request.endpoint == 'menu' %}opacity-100{% endif %}"></div>
+                        </a>
+                        
+                        <a href="/orders" class="nav-link group flex items-center px-4 py-4 text-gray-700 dark:text-gray-300 hover:text-success-600 dark:hover:text-success-400 rounded-2xl transition-all duration-300 {% if request.endpoint == 'orders' %}bg-gradient-to-r from-success-50 to-success-100 dark:from-success-900/30 dark:to-success-800/30 text-success-700 dark:text-success-300 shadow-soft border border-success-200/50{% endif %}">
+                            <div class="nav-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-success-500/10 to-success-600/10 group-hover:from-success-500/20 group-hover:to-success-600/20 transition-all duration-300 {% if request.endpoint == 'orders' %}from-success-500/20 to-success-600/20 shadow-lg{% endif %}">
+                                <i class="fas fa-clipboard-list text-base group-hover:scale-110 transition-transform duration-300"></i>
+                            </div>
+                            <span class="ml-4 font-semibold subheading-text text-base">Orders</span>
+                            <div class="ml-auto w-2 h-2 bg-current rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 {% if request.endpoint == 'orders' %}opacity-100{% endif %}"></div>
+                        </a>
+                        
+                        <a href="/offers" class="nav-link group flex items-center px-4 py-4 text-gray-700 dark:text-gray-300 hover:text-error-600 dark:hover:text-error-400 rounded-2xl transition-all duration-300 {% if request.endpoint == 'offers' %}bg-gradient-to-r from-error-50 to-error-100 dark:from-error-900/30 dark:to-error-800/30 text-error-700 dark:text-error-300 shadow-soft border border-error-200/50{% endif %}">
+                            <div class="nav-icon flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-error-500/10 to-error-600/10 group-hover:from-error-500/20 group-hover:to-error-600/20 transition-all duration-300 {% if request.endpoint == 'offers' %}from-error-500/20 to-error-600/20 shadow-lg{% endif %}">
+                                <i class="fas fa-tags text-base group-hover:scale-110 transition-transform duration-300"></i>
+                            </div>
+                            <span class="ml-4 font-semibold subheading-text text-base">Offers</span>
+                            <div class="ml-auto w-2 h-2 bg-current rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 {% if request.endpoint == 'offers' %}opacity-100{% endif %}"></div>
+                        </a>
+                    </div>
+                </nav>
+                
+                <!-- Sidebar Footer -->
+                <div class="p-6 border-t border-white/20 dark:border-white/10">
+                    <div class="bg-gradient-to-r from-gray-50/80 to-gray-100/80 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 border border-gray-200/50 dark:border-gray-600/30 hover:shadow-lg transition-all duration-300">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-gradient-to-br from-gray-400 to-gray-500 rounded-2xl flex items-center justify-center shadow-md">
+                                <i class="fas fa-headset text-white text-base"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 subheading-text">Need Help?</p>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Contact our support team</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 ml-80 mobile-ml-0 p-8">
+            <div class="max-w-7xl mx-auto">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
     </div>
 
     <!-- Toast Notifications -->
-    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+    <div id="toast-container" class="fixed top-24 right-6 z-50 space-y-3"></div>
 
-    <script src="/static/js/app.js"></script>
+    <!-- Scripts -->
+    <script>
+        // Dark mode functionality
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const html = document.documentElement;
+        
+        // Check for saved theme preference or default to 'light'
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        if (currentTheme === 'dark') {
+            html.classList.add('dark');
+            darkModeToggle.checked = true;
+        }
+        
+        darkModeToggle.addEventListener('change', function() {
+            if (this.checked) {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        // Enhanced animations on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-fade-in-up');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+        
+        // Observe elements for animation
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.stat-card, .action-card').forEach(el => {
+                observer.observe(el);
+            });
+        });
+
+        // Mobile navigation toggle
+        function toggleMobileNav() {
+            const sidebar = document.querySelector('aside');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+    </script>
+    
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>
