@@ -172,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 12),
                   _buildAnimatedText(_buildCarouselIndicators()),
                   const SizedBox(height: 32),
-                  _buildAnimatedText(_buildSectionTitle('Recommended For You', Icons.star_rounded)),
+                  _buildAnimatedText(_buildSectionTitle('Menu Items', Icons.restaurant_menu_rounded)),
                   const SizedBox(height: 16),
                   _buildAnimatedImage(_buildRecommendationsWidget()),
                   const SizedBox(height: 32),
@@ -473,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       );
     } else {
       return SizedBox(
-        height: 200,
+        height: 180, // Reduced height for the card
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           itemCount: _recommendedItems.length,
@@ -497,7 +497,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    height: 100,
+                    height: 140,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                       image: item['image_path'] != null
@@ -527,32 +527,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           Text(
                             item['name'] ?? 'Unknown Item',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade800,
+                              color: Colors.grey.shade700, // Reduced color intensity
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Spacer(),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.star_rounded,
-                                size: 16,
-                                color: Colors.orange.shade600,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Recommended',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.orange.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ),

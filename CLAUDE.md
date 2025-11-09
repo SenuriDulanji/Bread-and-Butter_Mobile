@@ -35,7 +35,7 @@ flutter clean
 flutter pub get
 
 # Generate launcher icons
-flutter pub run flutter_launcher_icons
+dart run flutter_launcher_icons
 
 # Hot reload during development (R key when running)
 # Hot restart (Shift+R key when running)
@@ -66,6 +66,7 @@ flutter pub run flutter_launcher_icons
 - `shared_preferences: ^2.0.15` - Local storage for user session
 - `intl: ^0.20.2` - Internationalization support
 - `flutter_launcher_icons: ^0.9.2` - Custom app icon generation
+- `flutter_lints: ^3.0.0` - Code quality and style enforcement
 
 ## Architecture Notes
 
@@ -116,3 +117,8 @@ flutter pub run flutter_launcher_icons
 ## Known Issues
 - Filename typos: `verificaition.dart` should be `verification.dart`, `loyality.dart` should be `loyalty.dart`
 - Test file contains template counter app test, not app-specific tests
+
+## Development Guidelines
+- Always prefer editing existing files over creating new ones
+- Only create documentation files when explicitly requested
+- Use `flutter analyze` before committing changes to ensure code quality

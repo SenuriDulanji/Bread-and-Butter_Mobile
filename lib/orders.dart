@@ -16,7 +16,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   List<dynamic> orders = [];
   bool isLoading = false;
   String? userId;
-  String selectedFilter = 'All'; // All, pending, confirmed, preparing, ready, delivered
+  String selectedFilter = 'All'; // All, delivered
 
   @override
   void initState() {
@@ -170,7 +170,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   }
 
   Widget _buildFilterChips() {
-    final filters = ['All', 'Pending', 'Confirmed', 'Preparing', 'Ready', 'Delivered'];
+    final filters = ['All', 'Delivered'];
     
     return Container(
       height: 50,

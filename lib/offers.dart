@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'home.dart'; // Import your home page file
 
 class OffersPage extends StatefulWidget {
   const OffersPage({Key? key}) : super(key: key);
@@ -10,7 +11,7 @@ class OffersPage extends StatefulWidget {
 class _OffersPageState extends State<OffersPage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-  
+
   // Sample offer data with titles and descriptions
   final List<Map<String, String>> offers = [
     {
@@ -71,119 +72,67 @@ class _OffersPageState extends State<OffersPage> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: Text(
-          "Special Offers",
-          style: TextStyle(
-            color: Colors.grey.shade800,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.arrow_back_rounded, color: Colors.orange.shade700, size: 20),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        elevation: 0,
-      ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return _buildOfferCard(offers[index], index);
-                  },
-                  childCount: offers.length,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.only(bottom: 40),
-              sliver: SliverToBoxAdapter(child: Container()),
-            ),
-          ],
-        ),
-      ),
+  Future<void> _onWillPop() async {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
     );
   }
 
-  Widget _buildHeaderSection() {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.orange.shade600,
-            Colors.orange.shade800,
-          ],
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        _onWillPop();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        appBar: AppBar(
+          title: Text(
+            "Special Offers",
+            style: TextStyle(
+              color: Colors.grey.shade800,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          centerTitle: true,
+          backgroundColor: Colors.white,
+          leading: IconButton(
+            icon: Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.arrow_back_rounded, color: Colors.orange.shade700, size: 20),
+            ),
+            onPressed: () => _onWillPop(),
+          ),
+          elevation: 0,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
-            blurRadius: 15,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Delicious Deals',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
+        body: FadeTransition(
+          opacity: _fadeAnimation,
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                      return _buildOfferCard(offers[index], index);
+                    },
+                    childCount: offers.length,
                   ),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'Save more on your favorite meals with our exclusive offers',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.9),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.only(bottom: 40),
+                sliver: SliverToBoxAdapter(child: Container()),
+              ),
+            ],
           ),
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              Icons.local_offer_rounded,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

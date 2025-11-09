@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'config.dart';
+import 'home.dart'; // Import your home page
 
 class MenuPage extends StatefulWidget {
   @override
@@ -17,6 +18,29 @@ class _MenuPageState extends State<MenuPage> {
   String selectedFilter = "All"; // Default filter
   int? selectedCategoryId; // Track selected category ID
   TextEditingController searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    fetchCategories();
+    fetchMenuItems();
+    searchController.addListener(() {
+      filterMenuItems(searchController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  // Use this for backward navigation
+  Future<void> _onWillPop() async {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
+  }
 
   // Function to fetch categories from API
   Future<void> fetchCategories() async {
@@ -44,7 +68,6 @@ class _MenuPageState extends State<MenuPage> {
   // Function to fetch menu items from API
   Future<void> fetchMenuItems() async {
     try {
-      // Build URL based on filter: if "All", do not include parameter
       String url = '$baseUrl/fetch_items';
       if (selectedFilter != "All" && selectedCategoryId != null) {
         url += '?category_id=$selectedCategoryId';
@@ -55,9 +78,7 @@ class _MenuPageState extends State<MenuPage> {
         final data = json.decode(response.body);
 
         if (data['success'] == true) {
-          // Save the fetched items locally
           allMenuItems = List<Map<String, dynamic>>.from(data['items']);
-          // Apply any current search filter
           filterMenuItems(searchController.text);
         } else {
           print('Failed to fetch items: ${data['message']}');
@@ -96,9 +117,7 @@ class _MenuPageState extends State<MenuPage> {
     for (int i = 0; i < cartItems.length; i++) {
       Map<String, dynamic> cartItem = json.decode(cartItems[i]);
 
-      // Check if the item already exists in the cart
       if (cartItem['item_id'] == item['id']) {
-        // Item exists, update its quantity
         cartItem['quantity']++;
         cartItems[i] = json.encode(cartItem);
         itemExists = true;
@@ -106,7 +125,6 @@ class _MenuPageState extends State<MenuPage> {
       }
     }
 
-    // If item doesn't exist, add it as a new item
     if (!itemExists) {
       item['quantity'] = 1;
       item['item_id'] = item['id'];
@@ -117,17 +135,6 @@ class _MenuPageState extends State<MenuPage> {
 
     await prefs.setStringList('cart', cartItems);
     print('Cart saved to SharedPreferences: $cartItems');
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    fetchCategories(); // Fetch categories first
-    fetchMenuItems(); // Fetch items when the page loads
-    // Listen for changes in the search field to filter items locally
-    searchController.addListener(() {
-      filterMenuItems(searchController.text);
-    });
   }
 
   // Update filter and refresh items, also clear search field
@@ -143,181 +150,176 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   @override
-  void dispose() {
-    searchController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.arrow_back_rounded, color: Colors.orange.shade700, size: 20),
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: Text(
-          'Our Menu',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Colors.grey.shade800,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
+    return WillPopScope(
+      onWillPop: () async {
+        _onWillPop();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
             icon: Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.shopping_bag_outlined, color: Colors.orange.shade700, size: 20),
+              child: Icon(Icons.arrow_back_rounded, color: Colors.orange.shade700, size: 20),
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => CartPage()),
-              );
-            },
+            onPressed: () => _onWillPop(),
           ),
-          SizedBox(width: 8),
-        ],
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(20.0),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  // Enhanced search field
-                  Container(
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search for delicious food...',
-                        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-                        prefixIcon: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Icon(Icons.search_rounded, color: Colors.orange.shade600, size: 24),
-                        ),
-                        suffixIcon: searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: Icon(Icons.clear_rounded, color: Colors.grey.shade400, size: 20),
-                                onPressed: () {
-                                  searchController.clear();
-                                  filterMenuItems('');
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                ],
-              ),
+          title: Text(
+            'Our Menu',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey.shade800,
             ),
           ),
-          // Filter chips section
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            sliver: SliverToBoxAdapter(
-              child: Container(
-                height: 50,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: categories.length + 1, // +1 for "All" option
-                  separatorBuilder: (context, index) => SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return _buildFilterChip('All', Icons.apps_rounded, null);
-                    } else {
-                      final category = categories[index - 1];
-                      return _buildFilterChip(
-                        category['name'],
-                        _getCategoryIcon(category['name']),
-                        category['id'],
-                      );
-                    }
-                  },
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: Icon(Icons.shopping_bag_outlined, color: Colors.orange.shade700, size: 20),
               ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => CartPage()),
+                );
+              },
             ),
-          ),
-          SliverPadding(
-            padding: EdgeInsets.only(top: 20),
-            sliver: SliverToBoxAdapter(child: Container()),
-          ),
-          // Menu items list
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            sliver: menuItems.isEmpty
-                ? SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(color: Colors.orange.shade600),
-                          SizedBox(height: 16),
-                          Text(
-                            'Loading delicious food...',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 16,
-                            ),
+            SizedBox(width: 8),
+          ],
+        ),
+        body: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.all(20.0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    Container(
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
                           ),
                         ],
                       ),
+                      child: TextField(
+                        controller: searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search for delicious food...',
+                          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                          prefixIcon: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Icon(Icons.search_rounded, color: Colors.orange.shade600, size: 24),
+                          ),
+                          suffixIcon: searchController.text.isNotEmpty
+                              ? IconButton(
+                            icon: Icon(Icons.clear_rounded, color: Colors.grey.shade400, size: 20),
+                            onPressed: () {
+                              searchController.clear();
+                              filterMenuItems('');
+                            },
+                          )
+                              : null,
+                          filled: true,
+                          fillColor: Colors.transparent,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        ),
+                      ),
                     ),
-                  )
-                : SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final item = menuItems[index];
-                        return _buildMenuItemCard(item, context);
-                      },
-                      childCount: menuItems.length,
-                    ),
+                    SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              sliver: SliverToBoxAdapter(
+                child: Container(
+                  height: 50,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: categories.length + 1,
+                    separatorBuilder: (context, index) => SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return _buildFilterChip('All', Icons.apps_rounded, null);
+                      } else {
+                        final category = categories[index - 1];
+                        return _buildFilterChip(
+                          category['name'],
+                          _getCategoryIcon(category['name']),
+                          category['id'],
+                        );
+                      }
+                    },
                   ),
-          ),
-          SliverPadding(
-            padding: EdgeInsets.only(bottom: 100),
-            sliver: SliverToBoxAdapter(child: Container()),
-          ),
-        ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.only(top: 20),
+              sliver: SliverToBoxAdapter(child: Container()),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              sliver: menuItems.isEmpty
+                  ? SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Colors.orange.shade600),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading delicious food...',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+                  : SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                    final item = menuItems[index];
+                    return _buildMenuItemCard(item, context);
+                  },
+                  childCount: menuItems.length,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.only(bottom: 100),
+              sliver: SliverToBoxAdapter(child: Container()),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -400,69 +402,67 @@ class _MenuPageState extends State<MenuPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image section
           Container(
             height: 180,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               image: item['image'] != null
                   ? DecorationImage(
-                      image: NetworkImage(
-                        item['image'].toString().startsWith('uploads/')
-                            ? '${imageUrl}${item['image']}'
-                            : '${imageUrl}uploads/images/${item['image']}',
-                      ),
-                      fit: BoxFit.cover,
-                    )
+                image: NetworkImage(
+                  item['image'].toString().startsWith('uploads/')
+                      ? '${imageUrl}${item['image']}'
+                      : '${imageUrl}uploads/images/${item['image']}',
+                ),
+                fit: BoxFit.cover,
+              )
                   : null,
               color: item['image'] == null ? Colors.orange.shade50 : null,
             ),
             child: item['image'] == null
                 ? Center(
-                    child: Icon(
-                      Icons.fastfood_rounded,
-                      size: 60,
-                      color: Colors.orange.shade300,
-                    ),
-                  )
+              child: Icon(
+                Icons.fastfood_rounded,
+                size: 60,
+                color: Colors.orange.shade300,
+              ),
+            )
                 : Stack(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.1),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '\$${item['price']}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.orange.shade700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.1),
+                      ],
+                    ),
                   ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '\$${item['price']}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          // Content section
           Padding(
             padding: EdgeInsets.all(20),
             child: Column(
