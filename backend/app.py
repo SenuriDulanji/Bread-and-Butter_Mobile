@@ -36,25 +36,32 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 UPLOAD_FOLDER = 'uploads/images'
 
 @app.route('/api/recommendations', methods=['GET'])
-@jwt_required() # Protects the route so only logged-in users can access
+@jwt_required()
 def recommendations():
     try:
-        # 1. Get the User ID from the token (Frontend sends 'Bearer <token>')
-        current_user_id = get_jwt_identity() 
+        # Get whatever was stored in the JWT during login
+        identity = get_jwt_identity() 
         
-        # 2. Call your AI Service
-        # Note: get_recommendation_json returns a JSON string, so we parse it first
-        import json
+        # If your login stores the whole user object:
+        if isinstance(identity, dict):
+            current_user_id = identity.get('id')
+        else:
+            current_user_id = identity
+
+        # This check is what was triggering the 422
+        if current_user_id is None:
+            return jsonify({"error": "user_id is required"}), 422
+        
+        # Now the model WILL work because it has a real ID
         ai_response_text = get_recommendation_json(current_user_id)
-        ai_data = json.loads(ai_response_text)
         
-        # 3. Send it back to Flutter
-        return jsonify(ai_data), 200
+        import json
+        return jsonify(json.loads(ai_response_text)), 200
 
     except Exception as e:
-        print(f"Error in recommendation route: {e}")
+        print(f"Error: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
-
+    
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 

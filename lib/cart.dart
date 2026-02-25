@@ -580,17 +580,20 @@ class CartItem extends StatelessWidget {
     required this.onDecrease,
   });
 
-  String _constructImageUrl(String imagePath) {
-    if (imagePath.isEmpty) {
-      return '';
-    }
     // Handle both full paths and filenames like menu.dart
-    if (imagePath.startsWith('uploads/')) {
-      return '$imageUrl$imagePath';
-    } else {
-      return '${imageUrl}uploads/images/$imagePath';
-    }
+  String _constructImageUrl(String imagePath) {
+  // 🛡️ Priority 1: If it's a full Cloud URL, return it exactly as it is
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  } 
+  
+  // Priority 2: Your existing local server logic
+  if (imagePath.startsWith('uploads/')) {
+    return '$imageUrl$imagePath';
+  } else {
+    return '${imageUrl}uploads/images/$imagePath';
   }
+}
 
   @override
   Widget build(BuildContext context) {

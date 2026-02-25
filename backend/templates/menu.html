@@ -62,7 +62,8 @@
         <div class="aspect-w-16 aspect-h-12 relative overflow-hidden">
             {% if item.image %}
             <img class="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500" 
-                 src="/uploads/images/{{ item.image }}" alt="{{ item.name }}" 
+                 src="{% if item.image.startswith('http') %}{{ item.image }}{% else %}/uploads/images/{{ item.image }}{% endif %}" 
+                 alt="{{ item.name }}" 
                  onerror="this.onerror=null; this.parentElement.innerHTML='<div class=&quot;w-full h-56 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center&quot;><i class=&quot;fas fa-utensils text-gray-400 dark:text-gray-500 text-3xl&quot;></i></div>';">
             {% else %}
             <div class="w-full h-56 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">

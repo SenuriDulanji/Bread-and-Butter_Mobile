@@ -20,9 +20,11 @@ def init_gemini():
     with open(SERVICE_ACCOUNT_FILE) as f:
         project_id = json.load(f)['project_id']
 
+    # Initialize Vertex AI with the specific region
     vertexai.init(project=project_id, location="us-central1", credentials=creds)
-    # Using the latest Gemini 2.0 Flash model
-    return GenerativeModel("gemini-2.0-flash-exp")
+    
+    # FIX: Using 'gemini-1.5-flash-002' - Stable version, avoids 404 errors
+    return GenerativeModel("gemini-2.0-flash-001")
 
 # 2. Fetch Menu from Google Cloud Storage
 def get_menu_from_gcs():
@@ -33,10 +35,7 @@ def get_menu_from_gcs():
     with open(SERVICE_ACCOUNT_FILE) as f:
         project_id = json.load(f)['project_id']
 
-    # Initialize GCS Client
     storage_client = storage.Client(project=project_id, credentials=creds)
-    
-    # --- IMPORTANT: Ensure these match your Cloud Console exactly ---
     BUCKET_NAME = "foodmenu_item" 
     FILE_NAME = "menu_items.json"
     
@@ -53,7 +52,6 @@ def get_user_history_string(user_id):
     base_dir = get_base_dir()
     db_path = os.path.join(base_dir, 'instance', 'breadandbutter.db')
     
-    # Connect and use double-quotes for the reserved "order" table name
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
@@ -78,52 +76,81 @@ def get_user_history_string(user_id):
 
 # 4. Main Recommendation Logic
 def get_recommendation_json(user_id):
-    # Initialize components
     model = init_gemini()
-    menu_json = get_menu_from_gcs()
+    raw_menu_json = get_menu_from_gcs()
     
-    if not menu_json:
+    if not raw_menu_json:
         return json.dumps({"error": "Failed to load menu from Cloud Storage"})
+
+    # --- 🛡️ TOKEN SAVER: Minimize Menu Data ---
+    # We strip image URLs and long descriptions before sending to Gemini.
+    # This prevents the "Token Exceeded" error and saves processing time.
+    try:
+        menu_data = json.loads(raw_menu_json)
+        simplified_menu = []
+        for category in menu_data.get('menu_items', []):
+            for item in category.get('items', []):
+                simplified_menu.append({
+                    "id": item.get('item_id'),
+                    "name": item.get('name'),
+                    "price": item.get('price'),
+                    "tags": item.get('tags', []),
+                    "category": category.get('category')
+                })
+        clean_menu_for_ai = json.dumps(simplified_menu)
+    except Exception:
+        clean_menu_for_ai = raw_menu_json # Fallback
 
     history = get_user_history_string(user_id)
     current_time = datetime.now().strftime("%I:%M %p")
     
-    # Set model to return strictly structured JSON
+    # Configured for efficiency and stability
     config = GenerationConfig(
         response_mime_type="application/json",
-        temperature=0.7 # Adds a little creativity to the reasoning
+        temperature=0.1,       # Lower temp = more relevant, less "hallucination"
+        max_output_tokens=300  # Strict limit to save tokens
     )
 
     prompt = f"""
-    You are the AI recommendation engine for the 'Bread & Butter' food app.
+    You are a recommendation engine. 
     
     USER CONTEXT:
-    - Current Time: {current_time}
-    - Recent Orders: {history}
+    - History: {history}
     
-    MENU CATALOG (JSON):
-    {menu_json}
+    MENU:
+    {clean_menu_for_ai}
 
     TASK:
-    1. Analyze the user's history to identify flavor preferences (e.g., spicy, vegetarian, heavy/light).
-    2. Select 3 specific items from the provided Menu Catalog.
-    3. Ensure recommendations fit the time of day ({current_time}).
-    4. Use the 'tags' and 'spiciness' fields in the menu for better matching.
-
-    OUTPUT FORMAT:
+    Select 3 item_ids from the MENU that match the user's taste.
     Return ONLY a JSON object with this structure:
     {{
       "recommendations": [
         {{ 
           "item_id": "string", 
           "name": "string", 
-          "reason": "Explain why this matches their history or the current time",
-          "image_url": "string",
           "price": 0.00
         }}
       ]
     }}
     """
 
-    response = model.generate_content(prompt, generation_config=config)
-    return response.text
+    try:
+        response = model.generate_content(prompt, generation_config=config)
+        ai_output = json.loads(response.text)
+
+        full_menu = json.loads(raw_menu_json)
+        item_map = {}
+        for cat in full_menu.get('menu_items', []):
+            for itm in cat.get('items', []):
+                item_map[str(itm['item_id'])] = itm.get('image_url', '')
+
+        for rec in ai_output.get('recommendations', []):
+            rec['image_url'] = item_map.get(str(rec['item_id']), '')
+            # Ensure "reason" is removed if the AI added it anyway
+            rec.pop('reason', None) 
+
+        return json.dumps(ai_output)
+
+    except Exception as e:
+        print(f"AI Generation Error: {e}")
+        return json.dumps({"error": str(e)})

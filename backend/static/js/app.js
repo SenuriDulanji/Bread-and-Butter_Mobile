@@ -215,21 +215,25 @@ function editItem(itemId) {
             
             // Set existing image if available
             if (item.image) {
-                const imagePreview = document.getElementById('image-preview');
-                const imagePlaceholder = document.getElementById('image-placeholder');
-                const removeButton = document.getElementById('remove-image');
-                
-                imagePreview.src = `/uploads/images/${item.image}`;
-                imagePreview.classList.remove('hidden');
-                imagePlaceholder.classList.add('hidden');
-                removeButton.classList.remove('hidden');
-            } else {
-                resetImageUpload();
-            }
+            const imagePreview = document.getElementById('image-preview');
+            const imagePlaceholder = document.getElementById('image-placeholder');
+            const removeButton = document.getElementById('remove-image');
             
-            updatePricePreview();
-            openModal('item-modal');
-        });
+            // 🛡️ THE FIX: Check if the image is a Google Cloud link
+            imagePreview.src = item.image.startsWith('http') 
+                ? item.image 
+                : `/uploads/images/${item.image}`;
+            
+            imagePreview.classList.remove('hidden');
+            imagePlaceholder.classList.add('hidden');
+            removeButton.classList.remove('hidden');
+        } else {
+            resetImageUpload();
+        }
+        
+        updatePricePreview();
+        openModal('item-modal');
+    });
 }
 
 // Image upload functionality
@@ -372,38 +376,42 @@ function viewOrderDetails(orderId) {
             `;
             
             // Generate items list
-            const itemsHtml = order.items.map(item => {
-                const itemImage = item.menu_item && item.menu_item.image 
-                    ? `/uploads/images/${item.menu_item.image}` 
-                    : null;
+           const itemsHtml = order.items.map(item => {
                 
-                return `
-                    <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                        ${itemImage ? 
-                            `<img src="${itemImage}" alt="${item.name}" class="w-12 h-12 object-cover rounded-lg">` :
-                            `<div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 110 2h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6H3a1 1 0 110-2h4zM9 6h6v10H9V6z"/>
-                                </svg>
-                            </div>`
-                        }
-                        <div class="flex-1">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-900">${item.name}</h4>
-                                    ${item.menu_item && item.menu_item.category_name ? 
-                                        `<p class="text-xs text-gray-500">${item.menu_item.category_name}</p>` : ''
-                                    }
-                                </div>
-                                <div class="text-right">
-                                    <p class="text-sm font-medium text-gray-900">$${parseFloat(item.total || 0).toFixed(2)}</p>
-                                    <p class="text-xs text-gray-500">${item.quantity}x $${parseFloat(item.price || 0).toFixed(2)}</p>
-                                </div>
-                            </div>
+        // 🛡️ THE FIX: Check if it's a Cloud URL or a Local File
+        const itemImage = item.menu_item && item.menu_item.image 
+            ? (item.menu_item.image.startsWith('http') 
+                ? item.menu_item.image // It's a Google Cloud link, use it directly
+                : `/uploads/images/${item.menu_item.image}`) // It's local, add the folder path
+            : null;
+                    
+        return `
+            <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                ${itemImage ? 
+                    `<img src="${itemImage}" alt="${item.name}" class="w-12 h-12 object-cover rounded-lg">` :
+                    `<div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 110 2h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6H3a1 1 0 110-2h4zM9 6h6v10H9V6z"/>
+                        </svg>
+                    </div>`
+                }
+                <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">${item.name}</h4>
+                            ${item.menu_item && item.menu_item.category_name ? 
+                                `<p class="text-xs text-gray-500">${item.menu_item.category_name}</p>` : ''
+                            }
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-900">$${parseFloat(item.total || 0).toFixed(2)}</p>
+                            <p class="text-xs text-gray-500">${item.quantity}x $${parseFloat(item.price || 0).toFixed(2)}</p>
                         </div>
                     </div>
-                `;
-            }).join('');
+                </div>
+            </div>
+        `;
+    }).join('');
             
             content.innerHTML = `
                 <div class="space-y-6">
