@@ -7,6 +7,7 @@ import 'profile.dart';
 import 'menu.dart';
 import 'offers.dart';
 import 'cart.dart';
+import 'models/recommendation.dart'; // Add this line
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -26,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   int _currentIndex = 0; // For bottom navigation
 
   // List to store recommended items details
-  List<dynamic> _recommendedItems = [];
+  List<Recommendation> _recommendedItems = []; // Changed from List<dynamic>
   bool _isLoadingRecommendations = true;
 
   // User data
@@ -89,17 +90,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Future<void> _fetchRecommendations() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
+
     if (token == null) {
       print('Token is not available');
-      setState(() {
-        _isLoadingRecommendations = false;
-      });
+      setState(() => _isLoadingRecommendations = false);
       return;
     }
 
     try {
+      // Updated URL to match the Python Backend Route
       final response = await http.get(
-        Uri.parse('$baseUrl/recommendations'),
+        Uri.parse('$baseUrl/recommendations'), 
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -108,42 +109,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success']) {
-          List<dynamic> items = data['recommendations'];
-          items = items.map((item) {
-            if (item['image'] != null) {
-              String imagePath = item['image'];
-              if (imagePath.startsWith('uploads/')) {
-                item['image_path'] = '$imageUrl$imagePath';
-              } else {
-                item['image_path'] = '${imageUrl}uploads/images/$imagePath';
-              }
-            } else {
-              item['image_path'] = null;
-            }
-            return item;
-          }).toList();
-          setState(() {
-            _recommendedItems = items;
-            _isLoadingRecommendations = false;
-          });
-        } else {
-          print('Failed to load recommendations: ${data['message']}');
-          setState(() {
-            _isLoadingRecommendations = false;
-          });
-        }
-      } else {
-        print('Failed to load recommendations: ${response.statusCode}');
+        
+        // Gemini returns { "recommendations": [...] }
+        // We use the '?? []' to ensure it doesn't crash if null
+        final List<dynamic> rawList = data['recommendations'] ?? [];
+
         setState(() {
+          // Map the JSON directly to our Recommendation Model
+          _recommendedItems = rawList.map((item) => Recommendation.fromJson(item)).toList();
           _isLoadingRecommendations = false;
         });
+      } else {
+        print('Failed to load recommendations: ${response.statusCode}');
+        setState(() => _isLoadingRecommendations = false);
       }
     } catch (e) {
       print('Error fetching recommendations: $e');
-      setState(() {
-        _isLoadingRecommendations = false;
-      });
+      setState(() => _isLoadingRecommendations = false);
     }
   }
 
@@ -172,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 12),
                   _buildAnimatedText(_buildCarouselIndicators()),
                   const SizedBox(height: 32),
-                  _buildAnimatedText(_buildSectionTitle('Menu Items', Icons.restaurant_menu_rounded)),
+                  _buildAnimatedText(_buildSectionTitle('Recommended For You', Icons.restaurant_menu_rounded)),
                   const SizedBox(height: 16),
                   _buildAnimatedImage(_buildRecommendationsWidget()),
                   const SizedBox(height: 32),
@@ -420,68 +402,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Widget _buildRecommendationsWidget() {
     if (_isLoadingRecommendations) {
       return Container(
-        height: 180,
+        height: 240, // Increased height for the new card style
         child: Center(
           child: CircularProgressIndicator(color: Colors.orange.shade600),
         ),
       );
     } else if (_recommendedItems.isEmpty) {
+      // ... (Your existing empty state code is fine, or use this simple one)
       return Container(
         height: 180,
-        padding: EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
         ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.restaurant_menu_outlined,
-                size: 48,
-                color: Colors.grey.shade400,
-              ),
-              SizedBox(height: 12),
-              Text(
-                'No recommendations yet',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Start ordering to get personalized suggestions',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+        child: Center(child: Text('Order to get AI picks!')),
       );
     } else {
       return SizedBox(
-        height: 180, // Reduced height for the card
+        height: 250, // Height to fit Image + Name + Reason
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           itemCount: _recommendedItems.length,
           itemBuilder: (context, index) {
             final item = _recommendedItems[index];
             return Container(
-              width: 140,
-              margin: EdgeInsets.only(right: 16),
+              width: 180, // Slightly wider for better text reading
+              margin: const EdgeInsets.only(right: 16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -489,52 +435,89 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   BoxShadow(
                     color: Colors.black.withOpacity(0.08),
                     blurRadius: 10,
-                    offset: Offset(0, 4),
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    height: 140,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                      image: item['image_path'] != null
-                          ? DecorationImage(
-                        image: NetworkImage(item['image_path']),
-                        fit: BoxFit.cover,
-                      )
-                          : null,
-                      color: item['image_path'] == null ? Colors.orange.shade50 : null,
-                    ),
-                    child: item['image_path'] == null
-                        ? Center(
-                      child: Icon(
-                        Icons.fastfood_rounded,
-                        size: 40,
-                        color: Colors.orange.shade300,
-                      ),
-                    )
-                        : null,
-                  ),
+                  // 1. IMAGE SECTION
+                  // 1. IMAGE SECTION WITH PRICE TAG
                   Expanded(
+                    flex: 3,
+                    child: Stack(
+                      children: [
+                        // The Background Image
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                            image: DecorationImage(
+                              image: item.imageUrl != null
+                                  ? NetworkImage(item.imageUrl!)
+                                  : const AssetImage('assets/placeholder.png') as ImageProvider,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        
+                        // The Price Tag (Top Right Corner)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '\$${item.price.toStringAsFixed(2)}', // Display as $12.99
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // 2. TEXT DETAILS SECTION
+                  Expanded(
+                    flex: 2,
                     child: Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Item Name
                           Text(
-                            item['name'] ?? 'Unknown Item',
+                            item.name,
                             style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700, // Reduced color intensity
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade800,
                             ),
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          Spacer(),
+                          const SizedBox(height: 6),
+                          
+                          // AI "Reason" Text - The key feature!
+                          Text(
+                            item.reason,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.orange.shade800,
+                              fontStyle: FontStyle.italic,
+                              height: 1.2,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ),
                     ),

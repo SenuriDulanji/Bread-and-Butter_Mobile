@@ -137,3 +137,6 @@ web/.flutter-plugins-dependencies
 *.g.dart
 *.freezed.dart
 *.mocks.dart
+
+# API KEY FILE
+vertex-ai-key.json

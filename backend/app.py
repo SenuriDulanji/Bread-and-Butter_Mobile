@@ -15,7 +15,11 @@ import numpy as np
 from prophet import Prophet
 import warnings
 warnings.filterwarnings('ignore')
-from recommendation_engine import recommendation_engine
+from flask import Flask, jsonify, request
+# Import the function we created earlier
+from app.services.ai_service import get_recommendation_json 
+# Assuming you use flask_jwt_extended for the "Bearer token" logic
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secrets.token_hex(16)
@@ -25,10 +29,31 @@ app.config['JWT_SECRET_KEY'] = secrets.token_hex(32)
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=30)
 app.config['JWT_ALGORITHM'] = 'HS256'
 
+
 # Image upload configuration
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max file size
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 UPLOAD_FOLDER = 'uploads/images'
+
+@app.route('/api/recommendations', methods=['GET'])
+@jwt_required() # Protects the route so only logged-in users can access
+def recommendations():
+    try:
+        # 1. Get the User ID from the token (Frontend sends 'Bearer <token>')
+        current_user_id = get_jwt_identity() 
+        
+        # 2. Call your AI Service
+        # Note: get_recommendation_json returns a JSON string, so we parse it first
+        import json
+        ai_response_text = get_recommendation_json(current_user_id)
+        ai_data = json.loads(ai_response_text)
+        
+        # 3. Send it back to Flutter
+        return jsonify(ai_data), 200
+
+    except Exception as e:
+        print(f"Error in recommendation route: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
