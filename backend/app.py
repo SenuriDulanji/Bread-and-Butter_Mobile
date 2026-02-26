@@ -1,3 +1,5 @@
+import sqlite3
+
 from flask import Flask, request, jsonify, send_from_directory, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -1258,6 +1260,40 @@ def init_db():
                 db.session.add(offer)
             
             db.session.commit()
+
+@app.route('/api/feedback', methods=['POST'])
+@jwt_required()
+def submit_feedback():
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        # Log data to see what Flutter is actually sending
+        print(f"📥 Received RL Signal: {data}")
+
+        # Ensure values exist to prevent KeyErrors
+        item_id = data.get('item_id')
+        category = data.get('category', 'General')
+        reward = data.get('reward')
+
+        db_path = r"D:\AI-Project-Group-4\backend\instance\breadandbutter.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Use 'INSERT INTO' with explicit column names
+        cursor.execute("""
+            INSERT INTO cloud_feedback (user_id, item_id, category, reward)
+            VALUES (?, ?, ?, ?)
+        """, (user_id, item_id, category, reward))
+        
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        # 🎯 THIS LINE WILL TELL YOU WHY IT IS A 500 ERROR
+        print(f"❌ DATABASE ERROR: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     # Create uploads directory

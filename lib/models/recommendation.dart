@@ -1,26 +1,27 @@
 class Recommendation {
   final String itemId;
   final String name;
-  final String reason;
+  final String category; // Essential for Reinforcement Learning
+  final double price;
   final String? imageUrl;
-  final double price; // <--- 1. Add this field
 
   Recommendation({
     required this.itemId,
     required this.name,
-    required this.reason,
-    this.imageUrl,
+    required this.category,
     required this.price,
+    this.imageUrl,
   });
 
+  // This converts the JSON from your Flask API into this Dart object
   factory Recommendation.fromJson(Map<String, dynamic> json) {
-    return Recommendation(
-      itemId: json['item_id'] ?? '',
-      name: json['name'] ?? 'Unknown Item',
-      reason: json['reason'] ?? 'Recommended for you',
-      imageUrl: json['image_url'],
-      // 3. Parse the price (handles integers safely)
-      price: (json['price'] ?? 0).toDouble(), 
-    );
-  }
+  return Recommendation(
+    itemId: json['item_id']?.toString() ?? '0',
+    name: json['name'] ?? 'Unknown',
+    // Check if your backend uses 'category' or 'category_name'
+    category: json['category'] ?? json['category_name'] ?? 'General', 
+    price: (json['price'] as num?)?.toDouble() ?? 0.0,
+    imageUrl: json['image_url'],
+  );
+}
 }

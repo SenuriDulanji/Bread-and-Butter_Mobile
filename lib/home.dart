@@ -29,7 +29,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   List<Recommendation> _recommendedItems = [];
   bool _isLoadingRecommendations = true;
-
   String _username = '';
   bool _isLoadingUsername = true;
 
@@ -42,18 +41,15 @@ class _HomeScreenState extends State<HomeScreen>
     )..forward();
 
     _textSlideAnimation = Tween<Offset>(
-      begin: const Offset(1, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+            begin: const Offset(1, 0), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _imageSlideAnimation = Tween<Offset>(
-      begin: const Offset(-1, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+            begin: const Offset(-1, 0), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _fetchUserData();
     _fetchRecommendations();
@@ -76,46 +72,67 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _fetchRecommendations() async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('token');
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
 
-  // 🕵️ Debug Print - Check your Flutter console for this!
-  print('DEBUG: My token is: $token');
+    if (token == null || token.isEmpty) {
+      setState(() => _isLoadingRecommendations = false);
+      return;
+    }
 
-  if (token == null || token.isEmpty) {
-    print('DEBUG: No token found, skipping request to avoid 422');
-    setState(() => _isLoadingRecommendations = false);
-    return;
-  }
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/recommendations'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
-  try {
-    final response = await http.get(
-      Uri.parse('$baseUrl/recommendations'), // Assuming baseUrl has /api
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token', 
-      },
-    );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> rawList = data['recommendations'] ?? [];
 
-    print('DEBUG: Response Status: ${response.statusCode}');
-    print('DEBUG: Response Body: ${response.body}');
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final List<dynamic> rawList = data['recommendations'] ?? [];
-
-      setState(() {
-        _recommendedItems = rawList.map((item) => Recommendation.fromJson(item)).toList();
-        _isLoadingRecommendations = false;
-      });
-    } else {
+        setState(() {
+          _recommendedItems =
+              rawList.map((item) => Recommendation.fromJson(item)).toList();
+          _isLoadingRecommendations = false;
+        });
+      } else {
+        setState(() => _isLoadingRecommendations = false);
+      }
+    } catch (e) {
       setState(() => _isLoadingRecommendations = false);
     }
-  } catch (e) {
-    print('DEBUG: Catch Error: $e');
-    setState(() => _isLoadingRecommendations = false);
   }
-}
+
+  // 📈 NEW: Send Reinforcement Learning Feedback (+1.0 for tap, -1.0 for unlike)
+  Future<void> _sendRLFeedback(
+      String itemId, String? category, double reward) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) return;
+
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/feedback'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'item_id': itemId,
+          'category': category ?? 'General',
+          'reward': reward,
+        }),
+      );
+      print('DEBUG: RL Reward $reward sent for $itemId');
+    } catch (e) {
+      print('DEBUG: RL Error: $e');
+    }
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -163,8 +180,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildRecommendationsWidget() {
     if (_isLoadingRecommendations) {
-      return Container(
-        height: 200, // Reduced height since reasoning is gone
+      return SizedBox(
+        height: 220,
         child: Center(
             child: CircularProgressIndicator(color: Colors.orange.shade600)),
       );
@@ -174,48 +191,51 @@ class _HomeScreenState extends State<HomeScreen>
         width: double.infinity,
         decoration: BoxDecoration(
             color: Colors.white, borderRadius: BorderRadius.circular(16)),
-        child: Center(
+        child: const Center(
             child: Text('Order something to get AI picks!',
                 style: TextStyle(color: Colors.grey))),
       );
     } else {
       return SizedBox(
-        height: 210, // 📏 Adjusted height to fit only Image + Name + Price
+        height: 220,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           itemCount: _recommendedItems.length,
           itemBuilder: (context, index) {
             final item = _recommendedItems[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MenuPage(highlightItemId: item.itemId), // Pass the ID
-                  ),
-                );
-              },
-              child: Container(
-                width: 160, // Slightly narrower for a compact look
-                margin: const EdgeInsets.only(right: 16, bottom: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 4, // 🖼️ Image takes more relative space now
-                      child: Stack(
-                        children: [
-                          Container(
+            return Stack(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    // 📈 POSITIVE REWARD: User showed interest
+                    _sendRLFeedback(item.itemId, item.category, 1.0);
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              MenuPage(highlightItemId: item.itemId)),
+                    );
+                  },
+                  child: Container(
+                    width: 160,
+                    margin: const EdgeInsets.only(right: 16, bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 5,
+                          child: Container(
                             decoration: BoxDecoration(
                               borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(16)),
@@ -229,48 +249,61 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                             ),
                           ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                  color: Colors.black87,
-                                  borderRadius: BorderRadius.circular(12)),
-                              child: Text('\$${item.price.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                      color: Colors.white,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.name,
+                                  style: TextStyle(
+                                      fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 11)),
-                            ),
+                                      color: Colors.grey.shade800),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 4),
+                              Text('\$${item.price.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                      color: Colors.orange.shade700,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12)),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    // 📝 Name Section (Reasoning removed to save tokens)
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                        item.name,
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade800),
-                        maxLines: 2, // Allow name to wrap if long
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                // 📉 NEGATIVE REWARD: Unlike Button
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: GestureDetector(
+                    onTap: () {
+                      _sendRLFeedback(item.itemId, item.category, -1.0);
+                      setState(() {
+                        _recommendedItems.removeAt(index);
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                          color: Colors.black54, shape: BoxShape.circle),
+                      child: const Icon(Icons.close,
+                          color: Colors.white, size: 14),
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),
       );
     }
   }
-  // --- UI HELPER METHODS (Remaining code stays the same) ---
+
+  // --- UI HELPER METHODS ---
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -309,7 +342,7 @@ class _HomeScreenState extends State<HomeScreen>
                               color: Colors.white.withOpacity(0.9),
                               fontSize: 14)),
                       Text(_isLoadingUsername ? 'User' : _username,
-                          style: TextStyle(
+                          style: const TextStyle(
                               color: Colors.white,
                               fontSize: 22,
                               fontWeight: FontWeight.w700)),
@@ -318,7 +351,8 @@ class _HomeScreenState extends State<HomeScreen>
                   CircleAvatar(
                     backgroundColor: Colors.white.withOpacity(0.2),
                     child: IconButton(
-                      icon: Icon(Icons.person_rounded, color: Colors.white),
+                      icon:
+                          const Icon(Icons.person_rounded, color: Colors.white),
                       onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -348,7 +382,7 @@ class _HomeScreenState extends State<HomeScreen>
                     color: Colors.grey.shade800)),
             TextButton(
               onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => OffersPage())),
+                  MaterialPageRoute(builder: (context) => const OffersPage())),
               child: Text('View All',
                   style: TextStyle(
                       color: Colors.orange.shade600,
@@ -388,8 +422,8 @@ class _HomeScreenState extends State<HomeScreen>
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(3, (index) {
         return AnimatedContainer(
-          duration: Duration(milliseconds: 300),
-          margin: EdgeInsets.symmetric(horizontal: 4),
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
           width: index == _currentPageIndex ? 24 : 8,
           height: 8,
           decoration: BoxDecoration(
@@ -407,7 +441,7 @@ class _HomeScreenState extends State<HomeScreen>
     return Row(
       children: [
         Icon(icon, color: Colors.orange.shade600, size: 20),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Text(title,
             style: TextStyle(
                 fontWeight: FontWeight.w700,
@@ -420,12 +454,12 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildHighlightContainer() {
     return GestureDetector(
       onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (context) => MenuPage())),
+          context, MaterialPageRoute(builder: (context) => const MenuPage())),
       child: Container(
         height: 180,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          image: DecorationImage(
+          image: const DecorationImage(
               image: AssetImage('assets/special.jpg'), fit: BoxFit.cover),
         ),
         child: Container(
@@ -435,8 +469,8 @@ class _HomeScreenState extends State<HomeScreen>
                 colors: [Colors.black.withOpacity(0.6), Colors.transparent],
                 begin: Alignment.bottomLeft),
           ),
-          padding: EdgeInsets.all(20),
-          child: Column(
+          padding: const EdgeInsets.all(20),
+          child: const Column(
               mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -459,11 +493,11 @@ class _HomeScreenState extends State<HomeScreen>
       onTap: (index) {
         setState(() => _currentIndex = index);
         if (index == 1)
-          Navigator.push(
-              context, MaterialPageRoute(builder: (context) => OffersPage()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const OffersPage()));
         if (index == 2)
-          Navigator.push(
-              context, MaterialPageRoute(builder: (context) => MenuPage()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const MenuPage()));
         if (index == 3)
           Navigator.push(
               context, MaterialPageRoute(builder: (context) => CartPage()));
@@ -471,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen>
       selectedItemColor: Colors.orange.shade600,
       unselectedItemColor: Colors.grey,
       type: BottomNavigationBarType.fixed,
-      items: [
+      items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
         BottomNavigationBarItem(
             icon: Icon(Icons.local_offer_rounded), label: 'Offers'),
