@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'config.dart';
 import 'home.dart';
+import 'utils/recommender_utils.dart';
 
 class MenuPage extends StatefulWidget {
   // 🛠️ Step 1: Accept the highlightItemId from the Home Screen
@@ -113,30 +114,55 @@ class _MenuPageState extends State<MenuPage> {
     });
   }
 
-  Future<void> addToCart(Map<String, dynamic> item) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> cartItems = prefs.getStringList('cart') ?? [];
-    bool itemExists = false;
+  // menu.dart
+Future<void> addToCart(Map<String, dynamic> item) async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String> cartItems = prefs.getStringList('cart') ?? [];
+  bool itemExists = false;
 
-    for (int i = 0; i < cartItems.length; i++) {
-      Map<String, dynamic> cartItem = json.decode(cartItems[i]);
-      if (cartItem['item_id'] == item['id']) {
-        cartItem['quantity']++;
-        cartItems[i] = json.encode(cartItem);
-        itemExists = true;
-        break;
-      }
-    }
-
-    if (!itemExists) {
-      item['quantity'] = 1;
-      item['item_id'] = item['id'];
-      item['imagePath'] = item['image'];
-      item['title'] = item['name'];
-      cartItems.add(json.encode(item));
-    }
-    await prefs.setStringList('cart', cartItems);
+  // 1. 🔍 Map the category name immediately
+  String categoryName = "General";
+  try {
+    final foundCategory = categories.firstWhere(
+      (cat) => cat['id'] == item['category_id'],
+      orElse: () => {'name': 'General'}
+    );
+    categoryName = foundCategory['name'];
+  } catch (e) {
+    categoryName = "General";
   }
+
+  // 2. 📈 SEND ONE CLEAN SIGNAL (Wait for the ID to be stringified)
+  // Ensure we use item['id'] because item['item_id'] might be null here
+  RecommenderUtils.sendFeedback(
+    itemId: item['id'].toString(), 
+    category: categoryName,
+    reward: RecommenderUtils.rewardAddToCart,
+  );
+
+  // 3. Prepare for Storage
+  for (int i = 0; i < cartItems.length; i++) {
+    Map<String, dynamic> cartItem = json.decode(cartItems[i]);
+    if (cartItem['item_id'] == item['id']) {
+      cartItem['quantity']++;
+      cartItems[i] = json.encode(cartItem);
+      itemExists = true;
+      break;
+    }
+  }
+
+  if (!itemExists) {
+    // 🛡️ IMPORTANT: Map these keys so CartPage can read them later
+    item['item_id'] = item['id']; 
+    item['category'] = categoryName; // Save the STRING name, not the ID
+    item['title'] = item['name'];
+    item['imagePath'] = item['image'];
+    item['quantity'] = 1;
+    cartItems.add(json.encode(item));
+  }
+  
+  await prefs.setStringList('cart', cartItems);
+}
 
   void updateFilter(String filter, int? categoryId) {
     setState(() {
@@ -322,7 +348,12 @@ class _MenuPageState extends State<MenuPage> {
                   child: GestureDetector(
                     onTap: () {
                       addToCart(item).then((_) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item['name']} added to cart'), backgroundColor: Colors.green.shade600));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${item['name']} added to cart'), 
+                            backgroundColor: Colors.green.shade600
+                          )
+                        );
                         Navigator.push(context, MaterialPageRoute(builder: (context) => CartPage()));
                       });
                     },

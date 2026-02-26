@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'menu.dart';
 import 'config.dart';
 import 'package:http/http.dart' as http;
+import 'utils/recommender_utils.dart'; // Ensure this is imported
 
 void main() {
   runApp(MaterialApp(
@@ -28,20 +29,20 @@ class _CartPageState extends State<CartPage> {
 
   Future<void> placeOrder() async {
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId'); // Retrieve user ID
+    final userId = prefs.getString('userId'); 
 
     if (userId == null) {
       print('User ID is not available');
       return;
     }
 
-    // Prepare order data with proper format for backend
     List<Map<String, dynamic>> orderItems = cartItems.map((item) {
       return {
         'item_id': item.itemId,
         'name': item.title,
         'price': item.price,
         'quantity': item.quantity,
+        'category': item.category, // Pass the category to the order
         'total': item.price * item.quantity,
       };
     }).toList();
@@ -49,18 +50,14 @@ class _CartPageState extends State<CartPage> {
     Map<String, dynamic> orderData = {
       'total_amount': calculateTotal(),
       'items': orderItems,
-      'delivery_address': '',  // Can be added later with address functionality
-      'phone': '',  // Can be added later with phone functionality
+      'delivery_address': '',  
+      'phone': '',  
     };
 
-    // Convert order data to JSON
     String jsonOrderData = json.encode(orderData);
-
-    // Log the request being sent
     print('Sending order data: $jsonOrderData');
 
     try {
-      // Get JWT token from shared preferences
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
       
@@ -73,22 +70,28 @@ class _CartPageState extends State<CartPage> {
         body: jsonOrderData,
       );
 
-      // Log the raw response body
       print('Server response (${response.statusCode}): ${response.body}');
 
       if (response.statusCode == 200) {
         var responseData = json.decode(response.body);
         if (responseData['success'] == true) {
-          // Clear the cart after a successful order
+
+          // 📈 GOLD REWARD: Send +5.0 Reward for every item ordered
+          for (var item in cartItems) {
+            // REMOVE 'await' here so it doesn't freeze the loop
+            RecommenderUtils.sendFeedback(
+              itemId: item.itemId.toString(),
+              category: item.category,
+              reward: RecommenderUtils.rewardOrder,
+            );
+          }
           setState(() {
             cartItems.clear();
           });
 
-          // Remove the saved cart from SharedPreferences
           await prefs.remove('cart');
           print('Order placed successfully');
 
-          // Navigate to MyOrdersScreen
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => MyOrdersScreen()),
@@ -105,38 +108,21 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
-  // Load cart from SharedPreferences
   Future<void> _loadCart() async {
     final prefs = await SharedPreferences.getInstance();
     List<String> savedCartItems = prefs.getStringList('cart') ?? [];
 
-    // Debug log to check if the cart is loaded correctly
-    print('Cart loaded from SharedPreferences: $savedCartItems');
-
     setState(() {
-      // Deserialize cart items from the list of JSON strings
       cartItems = savedCartItems.map((item) => CartItemData.fromJson(json.decode(item))).toList();
     });
-
-    // Debug log to check if the cartItems list is updated correctly
-    print('Cart items after loading: ${cartItems.map((item) => item.itemId).toList()}');
   }
 
-  // Save cart to SharedPreferences
   Future<void> _saveCart() async {
     final prefs = await SharedPreferences.getInstance();
     List<String> savedCartItems = cartItems.map((item) => json.encode(item.toJson())).toList();
-
-    // Debug log to check if the cart is being saved correctly
-    print('Saving cart: $savedCartItems');
-
     await prefs.setStringList('cart', savedCartItems);
-
-    // Log the saved cart after saving
-    print('Cart saved to SharedPreferences: ${prefs.getStringList('cart')}');
   }
 
-  // Function to calculate the total price
   double calculateTotal() {
     double total = 0;
     for (var item in cartItems) {
@@ -145,18 +131,16 @@ class _CartPageState extends State<CartPage> {
     return total;
   }
 
-  // Function to update quantity for a cart item
   void updateQuantity(int index, int change) {
     setState(() {
       cartItems[index].quantity += change;
       if (cartItems[index].quantity < 1) {
-        cartItems[index].quantity = 1; // Prevent quantity from going below 1
+        cartItems[index].quantity = 1; 
       }
     });
     _saveCart();
   }
 
-  // Function to remove an item from the cart
   void removeItem(int index) {
     setState(() {
       cartItems.removeAt(index);
@@ -166,7 +150,7 @@ class _CartPageState extends State<CartPage> {
 
   @override
   Widget build(BuildContext context) {
-    double totalPrice = calculateTotal(); // Calculate the total price
+    double totalPrice = calculateTotal(); 
 
     return Scaffold(
       appBar: AppBar(
@@ -190,8 +174,6 @@ class _CartPageState extends State<CartPage> {
           children: [
             _buildFreeShippingBanner(),
             SizedBox(height: 16),
-            
-            // Cart Items or Empty State
             Expanded(
               child: cartItems.isEmpty
                   ? _buildEmptyCartState()
@@ -211,8 +193,6 @@ class _CartPageState extends State<CartPage> {
                       },
                     ),
             ),
-            
-            // Bottom Section
             if (cartItems.isNotEmpty) ...[
               Container(
                 margin: EdgeInsets.symmetric(horizontal: 8.0),
@@ -232,6 +212,8 @@ class _CartPageState extends State<CartPage> {
       ),
     );
   }
+
+  // --- UI Methods (Your code) ---
 
   Widget _buildEmptyCartState() {
     return Center(
@@ -375,7 +357,6 @@ class _CartPageState extends State<CartPage> {
       ),
       child: Column(
         children: [
-          // Order Summary
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -420,7 +401,6 @@ class _CartPageState extends State<CartPage> {
           SizedBox(height: 12),
           Divider(color: Colors.grey.shade300),
           SizedBox(height: 12),
-          // Total
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -523,11 +503,13 @@ class _CartPageState extends State<CartPage> {
   }
 }
 
+// --- REPAIRED CLASS (Fixed item_id and category) ---
 class CartItemData {
-  final int itemId; // New property for the item identifier
+  final int itemId; 
   final String imagePath;
   final String title;
   final double price;
+  final String category; // Added category
   int quantity;
 
   CartItemData({
@@ -535,32 +517,35 @@ class CartItemData {
     required this.imagePath,
     required this.title,
     required this.price,
+    required this.category, // Added category
     required this.quantity,
   });
 
-  // Convert CartItemData to a JSON map
   Map<String, dynamic> toJson() {
     return {
       'item_id': itemId,
       'imagePath': imagePath,
       'title': title,
       'price': price,
+      'category': category, // Added category
       'quantity': quantity,
     };
   }
 
-  // Create CartItemData from a JSON map with null checks
   factory CartItemData.fromJson(Map<String, dynamic> json) {
     return CartItemData(
-      itemId: json['item_id'] ?? 0,
-      imagePath: json['imagePath'] ?? '',
-      title: json['title'] ?? '',
-      price: json['price'] is String ? double.tryParse(json['price']) ?? 0.0 : json['price'] ?? 0.0,
+      // We look for BOTH 'item_id' and 'id' to be safe
+      itemId: json['item_id'] ?? json['id'] ?? 0, 
+      imagePath: json['imagePath'] ?? json['image'] ?? '',
+      title: json['title'] ?? json['name'] ?? '',
+      price: (json['price'] is String ? double.tryParse(json['price']) : (json['price'] as num?)?.toDouble()) ?? 0.0,
+      category: json['category'] ?? 'General', // Added category
       quantity: json['quantity'] ?? 1,
     );
   }
 }
 
+// --- CART ITEM WIDGET (Your UI) ---
 class CartItem extends StatelessWidget {
   final String imagePath;
   final String title;
@@ -580,20 +565,16 @@ class CartItem extends StatelessWidget {
     required this.onDecrease,
   });
 
-    // Handle both full paths and filenames like menu.dart
   String _constructImageUrl(String imagePath) {
-  // 🛡️ Priority 1: If it's a full Cloud URL, return it exactly as it is
-  if (imagePath.startsWith('http')) {
-    return imagePath;
-  } 
-  
-  // Priority 2: Your existing local server logic
-  if (imagePath.startsWith('uploads/')) {
-    return '$imageUrl$imagePath';
-  } else {
-    return '${imageUrl}uploads/images/$imagePath';
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }  
+    if (imagePath.startsWith('uploads/')) {
+      return '$imageUrl$imagePath';
+    } else {
+      return '${imageUrl}uploads/images/$imagePath';
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -615,13 +596,11 @@ class CartItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.0),
         child: Column(
           children: [
-            // Main content area
             Padding(
               padding: EdgeInsets.all(16.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product Image
                   Container(
                     width: 90,
                     height: 90,
@@ -636,220 +615,76 @@ class CartItem extends StatelessWidget {
                               _constructImageUrl(imagePath),
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  Icons.fastfood,
-                                  size: 40,
-                                  color: Colors.orange.shade300,
-                                );
-                              },
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    color: Colors.orange.shade300,
-                                    strokeWidth: 2.0,
-                                  ),
-                                );
+                                return Icon(Icons.fastfood, size: 40, color: Colors.orange.shade300);
                               },
                             )
-                          : Icon(
-                              Icons.fastfood,
-                              size: 40,
-                              color: Colors.orange.shade300,
-                            ),
+                          : Icon(Icons.fastfood, size: 40, color: Colors.orange.shade300),
                     ),
                   ),
-                  
                   SizedBox(width: 16),
-                  
-                  // Product Details
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Title and Remove Button Row
                         Row(
                           children: [
                             Expanded(
                               child: Text(
                                 title,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 17,
-                                  color: Colors.grey.shade800,
-                                  height: 1.3,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 17, color: Colors.grey.shade800, height: 1.3),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            // Remove Button
                             GestureDetector(
                               onTap: onRemove,
                               child: Container(
                                 padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red.shade400,
-                                  size: 20,
-                                ),
+                                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
+                                child: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 20),
                               ),
                             ),
                           ],
                         ),
-                        
                         SizedBox(height: 12),
-                        
-                        // Price
-                        Text(
-                          '\$${price.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.orange.shade800,
-                          ),
-                        ),
-                        
+                        Text('\$${price.toStringAsFixed(2)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.orange.shade800)),
                         SizedBox(height: 4),
-                        
-                        // Unit price indicator
-                        Text(
-                          'per item',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
+                        Text('per item', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            
-            // Bottom Section with Quantity Controls and Total
             Container(
               padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                border: Border(
-                  top: BorderSide(
-                    color: Colors.grey.shade200,
-                    width: 1,
-                  ),
-                ),
-              ),
+              decoration: BoxDecoration(color: Colors.grey.shade50, border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1))),
               child: Row(
                 children: [
-                  // Quantity Label
-                  Text(
-                    'Quantity',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  
+                  Text('Quantity', style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
                   Spacer(),
-                  
-                  // Quantity Controls
                   Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: Offset(0, 2))]),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Decrease Button
                         GestureDetector(
                           onTap: quantity > 1 ? onDecrease : null,
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: quantity > 1 ? Colors.orange.shade600 : Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Icon(
-                              Icons.remove,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
+                          child: Container(width: 36, height: 36, decoration: BoxDecoration(color: quantity > 1 ? Colors.orange.shade600 : Colors.grey.shade300, borderRadius: BorderRadius.circular(18)), child: Icon(Icons.remove, color: Colors.white, size: 18)),
                         ),
-                        
-                        // Quantity Display
-                        Container(
-                          width: 50,
-                          child: Text(
-                            '$quantity',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                              color: Colors.grey.shade800,
-                            ),
-                          ),
-                        ),
-                        
-                        // Increase Button
+                        Container(width: 50, child: Text('$quantity', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.grey.shade800))),
                         GestureDetector(
                           onTap: onIncrease,
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade600,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Icon(
-                              Icons.add,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
+                          child: Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.orange.shade600, borderRadius: BorderRadius.circular(18)), child: Icon(Icons.add, color: Colors.white, size: 18)),
                         ),
                       ],
                     ),
                   ),
-                  
                   SizedBox(width: 16),
-                  
-                  // Item Total
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Total',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                      Text(
-                        '\$${(price * quantity).toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.orange.shade800,
-                        ),
-                      ),
-                    ],
-                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+                    Text('Total', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                    Text('\$${(price * quantity).toStringAsFixed(2)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.orange.shade800)),
+                  ]),
                 ],
               ),
             ),

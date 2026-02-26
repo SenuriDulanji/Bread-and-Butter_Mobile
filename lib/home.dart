@@ -8,6 +8,7 @@ import 'menu.dart';
 import 'offers.dart';
 import 'cart.dart';
 import 'models/recommendation.dart';
+import 'utils/recommender_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -106,33 +107,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // 📈 NEW: Send Reinforcement Learning Feedback (+1.0 for tap, -1.0 for unlike)
-  Future<void> _sendRLFeedback(
-      String itemId, String? category, double reward) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-
-    if (token == null) return;
-
-    try {
-      await http.post(
-        Uri.parse('$baseUrl/feedback'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({
-          'item_id': itemId,
-          'category': category ?? 'General',
-          'reward': reward,
-        }),
-      );
-      print('DEBUG: RL Reward $reward sent for $itemId');
-    } catch (e) {
-      print('DEBUG: RL Error: $e');
-    }
-  }
-
   @override
   void dispose() {
     _controller.dispose();
@@ -207,14 +181,19 @@ class _HomeScreenState extends State<HomeScreen>
               children: [
                 GestureDetector(
                   onTap: () {
-                    // 📈 POSITIVE REWARD: User showed interest
-                    _sendRLFeedback(item.itemId, item.category, 1.0);
+                    // ✅ FIX 1: Changed reward from 'rewardUnlike' to 'rewardClick' (+1.0)
+                    // We use the centralized utility instead of a local function for consistency.
+                    RecommenderUtils.sendFeedback(
+                      itemId: item.itemId.toString(),
+                      category: item.category,
+                      reward: RecommenderUtils.rewardClick, 
+                    );
 
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) =>
-                              MenuPage(highlightItemId: item.itemId)),
+                        builder: (context) => MenuPage(highlightItemId: item.itemId),
+                      ),
                     );
                   },
                   child: Container(
@@ -275,13 +254,19 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                 ),
-                // 📉 NEGATIVE REWARD: Unlike Button
+                // 📉 NEGATIVE REWARD: Unlike Button (Penalty: -2.0)
                 Positioned(
                   top: 8,
                   left: 8,
                   child: GestureDetector(
                     onTap: () {
-                      _sendRLFeedback(item.itemId, item.category, -1.0);
+                      // ✅ FIX 2: Use RecommenderUtils.rewardUnlike (-2.0)
+                      RecommenderUtils.sendFeedback(
+                        itemId: item.itemId.toString(), 
+                        category: item.category, 
+                        reward: RecommenderUtils.rewardUnlike
+                      );
+                      
                       setState(() {
                         _recommendedItems.removeAt(index);
                       });
